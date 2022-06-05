@@ -101,7 +101,7 @@ Obfuscates Audio Clips of any AudioSource.
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045336-bde72aed-80bb-4bfb-b7a5-6f18973b6115.png)
 
-This starts the obfuscation. Yoar avatar GameObject will be copied and all obfuscated data will be stored in the Assets/Obfuscated folder. Depending on amount of files, this process may take some time.
+This starts the obfuscation. Your avatar GameObject will be copied and all obfuscated data will be stored in the Assets/Obfuscated folder. Depending on amount of files, this process may take some time. Errors will be shown in console window.
 
 ### Clear Obfuscated Data
 
