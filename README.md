@@ -39,7 +39,7 @@ Currently, Shaders will not be obfuscated.
 
 ## Usage
 
-After import the UnityPackage, add the AV3Obfuscator component to your root avatar GameObect. Choose the options described below and run the obfuscation. If you upload the avatar for the first time, you have to transfer the avatar ID to your original file.
+After import the UnityPackage, add the AV3Obfuscator component to your root avatar GameObject. Choose the options described below and run the obfuscation. If you upload the avatar for the first time, you have to transfer the avatar ID to your original file.
 
 ### Layers, State Machines, States, Blend Trees
 
