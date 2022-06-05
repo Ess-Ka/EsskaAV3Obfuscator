@@ -25,8 +25,8 @@ Following data will be obfuscated by default:
 Optional, following data can be obfuscated:
 
 - Layers, State Machines, States, Blend Trees
-- Parameters (except of reserved VRC parameters)
 - VRC Expression Parameters + Menus
+- Parameters (except of reserved VRC parameters)
 - Meshes
 - Blend Shapes
 - Materials
@@ -57,7 +57,7 @@ Obfuscates VRC Expression Parameters, Menu and Submenus.
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045110-0bf33ec7-d2f8-478a-b24b-a665da12c296.png)
 
-Obfuscates the selected parameters. Reserved VRC parameters cannot be obfuscated.
+Obfuscates the selected parameters used by any Controller, State, StateBehaviour, BlendTree, Transition or used by any VRC Expression Menu. Reserved VRC parameters cannot be obfuscated.
 
 #### GTAvaCrypt Parameters ####
 
