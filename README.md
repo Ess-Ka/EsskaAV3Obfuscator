@@ -87,7 +87,7 @@ Obfuscates Materials of any MeshRenderer, SkinnedMeshRenderer, ParticleSystemRen
 
 ### Textures
 
-![grafik](https://user-images.githubusercontent.com/84975839/172045395-a3504dd4-f1cb-4e6e-bf3f-f0ea44c1cdc8.png)
+![grafik](https://user-images.githubusercontent.com/84975839/172046927-2c6408f2-d010-4b23-b97c-87e06284de1c.png)
 
 Obfuscates Textures of any used Material.
 
