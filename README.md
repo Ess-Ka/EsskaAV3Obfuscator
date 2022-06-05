@@ -71,7 +71,7 @@ If you use OSC driven parameters (e.g. VRCFT FaceTracking), you should unselect 
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045255-eb83c061-cedc-4b52-842e-e99902d851c3.png)
 
-Obfuscates Meshes of any MeshFilter, SkinnedMeshRenderer or ParticleSystem.
+Obfuscates Meshes of any MeshFilter, SkinnedMeshRenderer, ParticleSystem or ParticleSystemRenderer.
 
 ### Blend Shapes
 
