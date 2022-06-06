@@ -5,6 +5,8 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using VRC.SDK3.Avatars.Components;
 using VRC.SDK3.Avatars.ScriptableObjects;
+using VRC.SDK3.Dynamics.Contact.Components;
+using VRC.SDK3.Dynamics.PhysBone.Components;
 
 namespace Esska.AV3Obfuscator {
 
@@ -127,6 +129,9 @@ namespace Esska.AV3Obfuscator {
             if (config.obfuscateExpressionParameters) {
                 EditorUtility.DisplayProgressBar(TITLE, "Obfuscate VRC Expression Parameters + Menus", 0.7f);
                 ObfuscateExpressionsAndMenus(descriptor); // has to run after ObfuscateControllers
+
+                if (config.obfuscateParameters)
+                    ObfuscatePhysBonesAndContactReceivers(descriptor); // has to run after ObfuscateControllers
             }
 
             if (config.obfuscateMaterials && config.obfuscateTextures) {
@@ -889,6 +894,23 @@ namespace Esska.AV3Obfuscator {
             }
 
             throw new System.Exception(string.Format("Obfuscation of VRC Expression Menu '{0}' failed", menu.name));
+        }
+
+        void ObfuscatePhysBonesAndContactReceivers(VRCAvatarDescriptor descriptor) {
+            VRCPhysBone[] physBones = descriptor.GetComponentsInChildren<VRCPhysBone>(true);
+            VRCContactReceiver[] contactReceivers = descriptor.GetComponentsInChildren<VRCContactReceiver>(true);
+
+            foreach (var physBone in physBones) {
+
+                if (!string.IsNullOrEmpty(physBone.parameter) && obfuscatedParameters.ContainsKey(physBone.parameter))
+                    physBone.parameter = obfuscatedParameters[physBone.parameter];
+            }
+
+            foreach (var contactReceiver in contactReceivers) {
+
+                if (!string.IsNullOrEmpty(contactReceiver.parameter) && obfuscatedParameters.ContainsKey(contactReceiver.parameter))
+                    contactReceiver.parameter = obfuscatedParameters[contactReceiver.parameter];
+            }
         }
 
         void ObfuscateTextures() {
