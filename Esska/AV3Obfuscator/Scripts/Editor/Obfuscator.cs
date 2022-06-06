@@ -688,6 +688,11 @@ namespace Esska.AV3Obfuscator {
         }
 
         AnimationClip ObfuscateAnimationClip(AnimationClip clip) {
+            string path = AssetDatabase.GetAssetPath(clip);
+
+            if (path.Contains("ProxyAnim/proxy_"))
+                return clip;
+
             string newPath = GetObfuscatedPath<AnimationClip>(); ;
 
             if (obfuscatedAnimationClips.ContainsKey(clip)) {
