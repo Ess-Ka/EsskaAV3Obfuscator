@@ -47,6 +47,7 @@ namespace Esska.AV3Obfuscator {
         Dictionary<AudioClip, AudioClip> obfuscatedAudioClips;
         Dictionary<AvatarMask, AvatarMask> obfuscatedAvatarMasks;
         Dictionary<string, string> obfuscatedBlendShapeNames;
+        Dictionary<BlendTree, BlendTree> obfuscatedBlendTrees;
         Dictionary<Material, Material> obfuscatedMaterials;
         Dictionary<Mesh, Mesh> obfuscatedMeshes;
         Dictionary<string, string> obfuscatedParameters;
@@ -159,6 +160,7 @@ namespace Esska.AV3Obfuscator {
             obfuscatedAudioClips = new Dictionary<AudioClip, AudioClip>();
             obfuscatedAvatarMasks = new Dictionary<AvatarMask, AvatarMask>();
             obfuscatedBlendShapeNames = new Dictionary<string, string>();
+            obfuscatedBlendTrees = new Dictionary<BlendTree, BlendTree>();
             obfuscatedMaterials = new Dictionary<Material, Material>();
             obfuscatedMeshes = new Dictionary<Mesh, Mesh>();
             obfuscatedParameters = new Dictionary<string, string>();
@@ -618,6 +620,10 @@ namespace Esska.AV3Obfuscator {
                 foreach (var transition in stateMachine.anyStateTransitions) {
                     UpdateTransitionConditionParameters(transition);
                 }
+
+                foreach (var behaviour in stateMachine.behaviours) {
+                    ObfuscateBehaviour(behaviour);
+                }
             }
 
             foreach (var state in stateMachine.states) {
@@ -653,23 +659,27 @@ namespace Esska.AV3Obfuscator {
                 }
 
                 foreach (var behaviour in state.behaviours) {
-
-                    if (behaviour is VRCAvatarParameterDriver) {
-                        VRCAvatarParameterDriver parameterDriver = (VRCAvatarParameterDriver)behaviour;
-
-                        foreach (var parameter in parameterDriver.parameters) {
-
-                            if (obfuscatedParameters.ContainsKey(parameter.name))
-                                parameter.name = obfuscatedParameters[parameter.name];
-                        }
-                    }
+                    ObfuscateBehaviour(behaviour);
                 }
             }
 
             if (state.motion is AnimationClip)
                 state.motion = ObfuscateAnimationClip((AnimationClip)state.motion);
             else if (state.motion is BlendTree)
-                ObfuscateBlendTree((BlendTree)state.motion);
+                state.motion = ObfuscateBlendTree((BlendTree)state.motion);
+        }
+
+        void ObfuscateBehaviour(StateMachineBehaviour behaviour) {
+
+            if (behaviour is VRCAvatarParameterDriver) {
+                VRCAvatarParameterDriver parameterDriver = (VRCAvatarParameterDriver)behaviour;
+
+                foreach (var parameter in parameterDriver.parameters) {
+
+                    if (obfuscatedParameters.ContainsKey(parameter.name))
+                        parameter.name = obfuscatedParameters[parameter.name];
+                }
+            }
         }
 
         AnimationClip ObfuscateAnimationClip(AnimationClip clip) {
@@ -747,35 +757,60 @@ namespace Esska.AV3Obfuscator {
             throw new System.Exception(string.Format("Obfuscation of AnimationClip '{0}' failed", clip.name));
         }
 
-        void ObfuscateBlendTree(BlendTree blendTree) {
+        BlendTree ObfuscateBlendTree(BlendTree blendTree) {
 
-            if (config.obfuscateLayers)
-                blendTree.name = GUID.Generate().ToString();
+            if (obfuscatedBlendTrees.ContainsKey(blendTree)) {
+                return obfuscatedBlendTrees[blendTree];
+            }
+            else {
+                string newPath = GetObfuscatedPath<BlendTree>();
+                BlendTree obfuscatedBlendTree = blendTree;
 
-            if (config.obfuscateExpressionParameters && config.obfuscateParameters) {
+                if (AssetDatabase.IsMainAsset(blendTree)) {
 
-                if (obfuscatedParameters.ContainsKey(blendTree.blendParameter))
-                    blendTree.blendParameter = obfuscatedParameters[blendTree.blendParameter];
+                    if (AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(blendTree), newPath)) {
+                        obfuscatedBlendTree = AssetDatabase.LoadAssetAtPath<BlendTree>(newPath);
+                        obfuscatedBlendTrees.Add(blendTree, obfuscatedBlendTree);
+                    }
+                    else {
+                        throw new System.Exception(string.Format("Obfuscation of BlendTree '{0}' failed", blendTree.name));
+                    }
+                }
 
-                if (obfuscatedParameters.ContainsKey(blendTree.blendParameterY))
-                    blendTree.blendParameterY = obfuscatedParameters[blendTree.blendParameterY];
+                if (config.obfuscateLayers)
+                    obfuscatedBlendTree.name = GUID.Generate().ToString();
+
+                if (config.obfuscateExpressionParameters && config.obfuscateParameters) {
+
+                    if (obfuscatedParameters.ContainsKey(obfuscatedBlendTree.blendParameter))
+                        blendTree.blendParameter = obfuscatedParameters[blendTree.blendParameter];
+
+                    if (obfuscatedParameters.ContainsKey(obfuscatedBlendTree.blendParameterY))
+                        obfuscatedBlendTree.blendParameterY = obfuscatedParameters[blendTree.blendParameterY];
+                }
+
+                List<ChildMotion> childMotions = new List<ChildMotion>(obfuscatedBlendTree.children);
+
+                for (int i = 0; i < childMotions.Count; i++) {
+
+                    if (childMotions[i].motion is AnimationClip) {
+                        ChildMotion childMotion = childMotions[i];
+                        childMotion.motion = ObfuscateAnimationClip((AnimationClip)childMotion.motion);
+                        childMotions[i] = childMotion;
+                    }
+                    else if (obfuscatedBlendTree.children[i].motion is BlendTree) {
+                        ChildMotion childMotion = childMotions[i];
+                        childMotion.motion = ObfuscateBlendTree((BlendTree)obfuscatedBlendTree.children[i].motion);
+                        childMotions[i] = childMotion;
+                    }
+                }
+
+                obfuscatedBlendTree.children = childMotions.ToArray();
+
+                return obfuscatedBlendTree;
             }
 
-            List<ChildMotion> childMotions = new List<ChildMotion>(blendTree.children);
-
-            for (int i = 0; i < childMotions.Count; i++) {
-
-                if (childMotions[i].motion is AnimationClip) {
-                    ChildMotion childMotion = childMotions[i];
-                    childMotion.motion = ObfuscateAnimationClip((AnimationClip)childMotion.motion);
-                    childMotions[i] = childMotion;
-                }
-                else if (blendTree.children[i].motion is BlendTree) {
-                    ObfuscateBlendTree((BlendTree)blendTree.children[i].motion);
-                }
-            }
-
-            blendTree.children = childMotions.ToArray();
+            throw new System.Exception(string.Format("Obfuscation of BlendTree '{0}' failed", blendTree.name));
         }
 
         void UpdateTransitionConditionParameters(AnimatorTransitionBase transition) {
