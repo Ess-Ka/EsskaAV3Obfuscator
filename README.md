@@ -89,7 +89,7 @@ Obfuscates Materials of any MeshRenderer, SkinnedMeshRenderer, ParticleSystemRen
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172046927-2c6408f2-d010-4b23-b97c-87e06284de1c.png)
 
-Obfuscates Textures of any used Material or Icons used in VRC Menus.
+Obfuscates Textures of any used Material, RenderTextures used by any Camera or Icons used in VRC Menus.
 
 ### Audio Clips
 
