@@ -194,7 +194,7 @@ namespace Esska.AV3Obfuscator {
 
                 if (obfus.config.obfuscateMaterials) {
                     EditorGUI.indentLevel = 1;
-                    obfus.config.obfuscateTextures = EditorGUILayout.ToggleLeft(new GUIContent("Textures", "Textures of any used Material or Icons used in VRC Menus"), obfus.config.obfuscateTextures);
+                    obfus.config.obfuscateTextures = EditorGUILayout.ToggleLeft(new GUIContent("Textures", "Textures of any used Material, RenderTexture used of any Camera or Icons used in VRC Menus"), obfus.config.obfuscateTextures);
                     EditorGUI.indentLevel = 0;
                 }
             }

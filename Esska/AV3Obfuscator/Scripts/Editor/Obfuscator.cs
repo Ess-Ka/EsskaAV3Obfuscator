@@ -137,6 +137,9 @@ namespace Esska.AV3Obfuscator {
             if (config.obfuscateMaterials && config.obfuscateTextures) {
                 EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Textures", 0.8f);
                 ObfuscateTextures(); // has to run after ObfuscateMaterials and ObfuscateControllers->ObfuscateClips has collected all materials
+
+                if (config.obfuscateTextures)
+                    ObfuscateCameras(descriptor);
             }
 
             if (config.obfuscateAudioClips) {
@@ -930,6 +933,16 @@ namespace Esska.AV3Obfuscator {
                     if (texture != null)
                         obfuscatedMaterial.SetTexture(texturePropertyName, ObfuscateTexture(texture));
                 }
+            }
+        }
+
+        void ObfuscateCameras(VRCAvatarDescriptor descriptor) {
+            Camera[] cameras = descriptor.GetComponentsInChildren<Camera>(true);
+
+            foreach (var camera in cameras) {
+
+                if (camera.targetTexture != null)
+                    camera.targetTexture = (RenderTexture)ObfuscateTexture(camera.targetTexture);
             }
         }
 
