@@ -1,0 +1,17 @@
+{
+  "name": "com.esska.av3obfuscator",
+  "displayName": "Esska AV3 Obfuscator",
+  "version": "2.0.0",
+  "unity": "2019.4",
+  "description": "Esska AV3Obfuscator allows you to obfuscate your VRChat avatar.",
+  "author": {
+    "name": "Esska",
+    "url": "https://github.com/Ess-Ka"
+  },
+  "vpmDependencies": {
+    "com.vrchat.avatars": "3.1.x"
+  },
+  "legacyFolders": {
+    "Assets\\Esska\\AV3Obfuscator": "6a274f84e9da5444a865b99c93f917e5"
+  }
+}

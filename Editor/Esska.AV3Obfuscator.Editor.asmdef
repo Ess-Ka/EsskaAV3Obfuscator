@@ -1,0 +1,17 @@
+{
+    "name": "Esska.AV3Obfuscator.Editor",
+    "references": [
+        "Esska.AV3Obfuscator"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
