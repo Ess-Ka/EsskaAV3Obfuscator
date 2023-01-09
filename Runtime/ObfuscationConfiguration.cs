@@ -15,6 +15,8 @@ namespace Esska.AV3Obfuscator {
         public bool obfuscateMaterials = true;
         public bool obfuscateTextures = true;
         public bool obfuscateAudioClips = true;
+        public bool showOptionalObfuscation = true;
+        public bool showParameterSelection = true;
     }
 
 }

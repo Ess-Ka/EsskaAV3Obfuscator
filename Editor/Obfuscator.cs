@@ -8,7 +8,7 @@ using VRC.SDK3.Avatars.ScriptableObjects;
 using VRC.SDK3.Dynamics.Contact.Components;
 using VRC.SDK3.Dynamics.PhysBone.Components;
 
-namespace Esska.AV3Obfuscator {
+namespace Esska.AV3Obfuscator.Editor {
 
     public class Obfuscator : ScriptableObject {
 
@@ -32,6 +32,12 @@ namespace Esska.AV3Obfuscator {
             "Viseme",
             "Voice",
             "VRMode"
+        };
+
+        public static readonly List<string> VRC_PHYS_BONES_SUFFIXES = new List<string>() {
+            "_IsGrabbed",
+            "_Angle",
+            "_Stretch"
         };
 
         const string TITLE = "AV3Obfuscator";
@@ -268,7 +274,7 @@ namespace Esska.AV3Obfuscator {
                             });
                         }
                         else
-                            throw new System.Exception(string.Format("BoneName {0} not found", animator.avatar.humanDescription.human[i].boneName));
+                            throw new System.Exception($"BoneName {animator.avatar.humanDescription.human[i].boneName} not found");
                     }
 
                     HumanDescription description = new HumanDescription() {
@@ -297,7 +303,7 @@ namespace Esska.AV3Obfuscator {
                 }
             }
 
-            throw new System.Exception(string.Format("Obfuscation of Avatar '{0}' failed", animator.avatar.name));
+            throw new System.Exception($"Obfuscation of Avatar '{animator.avatar.name}' failed");
         }
 
         void ObfuscateMeshesAndBlendShapes(VRCAvatarDescriptor descriptor) {
@@ -341,11 +347,11 @@ namespace Esska.AV3Obfuscator {
             string meshPath = AssetDatabase.GetAssetPath(mesh);
 
             if (string.IsNullOrEmpty(meshPath) || !mesh.isReadable) {
-                Debug.LogError(string.Format("Mesh '{0}' cannot be obfuscated. It will be ignored.", mesh.name));
+                Debug.LogError($"Mesh '{mesh.name}' cannot be obfuscated. It will be ignored.");
                 return mesh;
             }
             else if (meshPath.Contains("unity default resources")) {
-                Debug.LogError(string.Format("Unity built-in Mesh '{0}' cannot be obfuscated. It will be ignored.", mesh.name));
+                Debug.LogError($"Unity built-in Mesh '{mesh.name}' cannot be obfuscated. It will be ignored.");
                 return mesh;
             }
 
@@ -466,11 +472,11 @@ namespace Esska.AV3Obfuscator {
             string path = AssetDatabase.GetAssetPath(material);
 
             if (string.IsNullOrEmpty(path)) {
-                Debug.LogError(string.Format("Material '{0}' cannot be obfuscated. It will be ignored.", material.name));
+                Debug.LogError($"Material '{material.name}' cannot be obfuscated. It will be ignored.");
                 return material;
             }
             else if (path.Contains("unity_builtin")) {
-                Debug.LogError(string.Format("Unity built-in Material '{0}' cannot be obfuscated. It will be ignored.", material.name));
+                Debug.LogError($"Unity built-in Material '{material.name}' cannot be obfuscated. It will be ignored.");
                 return material;
             }
 
@@ -487,7 +493,7 @@ namespace Esska.AV3Obfuscator {
                 return obfuscatedMaterial;
             }
 
-            throw new System.Exception(string.Format("Obfuscation of Material '{0}' failed", material.name));
+            throw new System.Exception($"Obfuscation of Material '{material.name}' failed");
         }
 
         void ObfuscateControllers(VRCAvatarDescriptor descriptor, Animator animator) {
@@ -551,6 +557,41 @@ namespace Esska.AV3Obfuscator {
                         }
                         else {
                             string newName = GUID.Generate().ToString();
+
+                            // Use same GUID for same PhysBones parameter and do not obfuscate suffix
+
+                            // Parameter in PhysBones component
+                            // Nose            ->  {GUID}
+
+                            // Parameter in controller
+                            // Nose_IsGrabbed  ->  {GUID}_IsGrabbed
+                            // Nose_Angle      ->  {GUID}_Angle
+                            // Nose_Stretch    ->  {GUID}_Stretch
+
+                            string physBonesParameterSuffix = GetPhysBonesParameterSuffix(parameter.name);
+
+                            if (!string.IsNullOrEmpty(physBonesParameterSuffix)) {
+                                string physBonesParameter = GetPhysBonesParameter(parameter.name);
+                                bool foundSamePhysBonesParameter = false;
+
+                                foreach (var suffix in VRC_PHYS_BONES_SUFFIXES) {
+
+                                    if (suffix == physBonesParameterSuffix)
+                                        continue;
+
+                                    string samePhysBonesParameterName = physBonesParameter + suffix;
+
+                                    if (obfuscatedParameters.ContainsKey(samePhysBonesParameterName)) {
+                                        newName = GetPhysBonesParameter(obfuscatedParameters[samePhysBonesParameterName]) + physBonesParameterSuffix;
+                                        foundSamePhysBonesParameter = true;
+                                        break;
+                                    }
+                                }
+
+                                if (!foundSamePhysBonesParameter)
+                                    newName += physBonesParameterSuffix;
+                            }
+
                             obfuscatedParameters.Add(parameter.name, newName);
                             parameter.name = newName;
                         }
@@ -578,7 +619,7 @@ namespace Esska.AV3Obfuscator {
                 return obfuscatedController;
             }
 
-            throw new System.Exception(string.Format("Obfuscation of Controller '{0}' failed", controller.name));
+            throw new System.Exception($"Obfuscation of Controller '{controller.name}' failed");
         }
 
         AvatarMask ObfuscateAvatarMask(AvatarMask avatarMask) {
@@ -603,7 +644,7 @@ namespace Esska.AV3Obfuscator {
                         obfuscatedAvatarMask.SetTransformPath(i, obfuscatedTransformPaths[index]);
                     }
                     else {
-                        Debug.LogError(string.Format("Path '{0}' in AvatarMask '{1}' doesn't exist in the Transform hierarchy. You should update the Transforms in the AvatarMask. The path will be obfuscated independently of this.", obfuscatedAvatarMask.GetTransformPath(i), avatarMask.name), avatarMask);
+                        Debug.LogError($"Path '{obfuscatedAvatarMask.GetTransformPath(i)}' in AvatarMask '{avatarMask.name}' doesn't exist in the Transform hierarchy. You should update the Transforms in the AvatarMask. The path will be obfuscated independently of this.", avatarMask);
                         obfuscatedAvatarMask.SetTransformPath(i, GUID.Generate().ToString());
                     }
                 }
@@ -611,7 +652,7 @@ namespace Esska.AV3Obfuscator {
                 return obfuscatedAvatarMask;
             }
 
-            throw new System.Exception(string.Format("Obfuscation of AvatarMask '{0}' failed", avatarMask.name));
+            throw new System.Exception($"Obfuscation of AvatarMask '{avatarMask.name}' failed");
         }
 
         void ObfuscateStateMachine(AnimatorStateMachine stateMachine) {
@@ -686,6 +727,9 @@ namespace Esska.AV3Obfuscator {
 
                     if (obfuscatedParameters.ContainsKey(parameter.name))
                         parameter.name = obfuscatedParameters[parameter.name];
+
+                    if (obfuscatedParameters.ContainsKey(parameter.source))
+                        parameter.source = obfuscatedParameters[parameter.source];
                 }
             }
         }
@@ -729,7 +773,7 @@ namespace Esska.AV3Obfuscator {
                     }
                     else {
                         AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
-                        Debug.LogError(string.Format("Path '{0}' in AnimationClip '{1}' cannot be obfuscated. Path was removed.", bindings[i].path, clip.name), clip);
+                        Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);
                     }
                 }
 
@@ -760,14 +804,14 @@ namespace Esska.AV3Obfuscator {
                     }
                     else {
                         AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], null);
-                        Debug.LogError(string.Format("Path '{0}' in AnimationClip '{1}' cannot be obfuscated. Path was removed.", bindings[i].path, clip.name), clip);
+                        Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);
                     }
                 }
 
                 return obfuscatedClip;
             }
 
-            throw new System.Exception(string.Format("Obfuscation of AnimationClip '{0}' failed", clip.name));
+            throw new System.Exception($"Obfuscation of AnimationClip '{clip.name}' failed");
         }
 
         BlendTree ObfuscateBlendTree(BlendTree blendTree) {
@@ -786,7 +830,7 @@ namespace Esska.AV3Obfuscator {
                         obfuscatedBlendTrees.Add(blendTree, obfuscatedBlendTree);
                     }
                     else {
-                        throw new System.Exception(string.Format("Obfuscation of BlendTree '{0}' failed", blendTree.name));
+                        throw new System.Exception($"Obfuscation of BlendTree '{blendTree.name}' failed");
                     }
                 }
 
@@ -823,7 +867,7 @@ namespace Esska.AV3Obfuscator {
                 return obfuscatedBlendTree;
             }
 
-            throw new System.Exception(string.Format("Obfuscation of BlendTree '{0}' failed", blendTree.name));
+            throw new System.Exception($"Obfuscation of BlendTree '{blendTree.name}' failed");
         }
 
         void UpdateTransitionConditionParameters(AnimatorTransitionBase transition) {
@@ -854,8 +898,11 @@ namespace Esska.AV3Obfuscator {
 
                         foreach (var expressionParameter in descriptor.expressionParameters.parameters) {
 
+                            if (string.IsNullOrEmpty(expressionParameter.name))
+                                continue;
+
                             if (!allParameters.Contains(expressionParameter.name))
-                                Debug.LogError(string.Format("VRC Expression Parameter '{0}' is not used in any controller. It's recommended to remove it.", expressionParameter.name), descriptor.expressionParameters);
+                                Debug.LogError($"VRC Expression Parameter '{expressionParameter.name}' is not used in any controller. It's recommended to remove it.", descriptor.expressionParameters);
 
                             if (config.obfuscateParameters) {
 
@@ -901,7 +948,7 @@ namespace Esska.AV3Obfuscator {
                 return obfuscatedMenu;
             }
 
-            throw new System.Exception(string.Format("Obfuscation of VRC Expression Menu '{0}' failed", menu.name));
+            throw new System.Exception($"Obfuscation of VRC Expression Menu '{menu.name}' failed");
         }
 
         void ObfuscatePhysBonesAndContactReceivers(VRCAvatarDescriptor descriptor) {
@@ -910,14 +957,26 @@ namespace Esska.AV3Obfuscator {
 
             foreach (var physBone in physBones) {
 
-                if (!string.IsNullOrEmpty(physBone.parameter) && obfuscatedParameters.ContainsKey(physBone.parameter))
-                    physBone.parameter = obfuscatedParameters[physBone.parameter];
+                if (!string.IsNullOrEmpty(physBone.parameter)) {
+
+                    foreach (var suffix in VRC_PHYS_BONES_SUFFIXES) {
+                        string physBonesParameterName = physBone.parameter + suffix;
+
+                        if (obfuscatedParameters.ContainsKey(physBonesParameterName)) {
+                            physBone.parameter = GetPhysBonesParameter(obfuscatedParameters[physBonesParameterName]);
+                            break;
+                        }
+                    }
+                }
             }
 
             foreach (var contactReceiver in contactReceivers) {
 
-                if (!string.IsNullOrEmpty(contactReceiver.parameter) && obfuscatedParameters.ContainsKey(contactReceiver.parameter))
-                    contactReceiver.parameter = obfuscatedParameters[contactReceiver.parameter];
+                if (!string.IsNullOrEmpty(contactReceiver.parameter)) {
+
+                    if (obfuscatedParameters.ContainsKey(contactReceiver.parameter))
+                        contactReceiver.parameter = obfuscatedParameters[contactReceiver.parameter];
+                }
             }
         }
 
@@ -954,11 +1013,11 @@ namespace Esska.AV3Obfuscator {
             string path = AssetDatabase.GetAssetPath(texture);
 
             if (string.IsNullOrEmpty(path)) {
-                Debug.LogError(string.Format("Texture '{0}' cannot be obfuscated. It will be ignored.", texture.name));
+                Debug.LogError($"Texture '{texture.name}' cannot be obfuscated. It will be ignored.");
                 return texture;
             }
             else if (path.Contains("unity_builtin")) {
-                Debug.LogError(string.Format("Unity built-in Texture '{0}' cannot be obfuscated. It will be ignored.", texture.name));
+                Debug.LogError("Unity built-in Texture '{texture.name}' cannot be obfuscated. It will be ignored.");
                 return texture;
             }
 
@@ -974,7 +1033,7 @@ namespace Esska.AV3Obfuscator {
                 return obfuscatedTexture;
             }
 
-            throw new System.Exception(string.Format("Obfuscation of Texture '{0}' failed", texture.name));
+            throw new System.Exception($"Obfuscation of Texture '{texture.name}' failed");
         }
 
         void ObfuscateAudioClips(VRCAvatarDescriptor descriptor) {
@@ -995,7 +1054,7 @@ namespace Esska.AV3Obfuscator {
             string path = AssetDatabase.GetAssetPath(ausdioClip);
 
             if (string.IsNullOrEmpty(path)) {
-                Debug.LogError(string.Format("AudioClip '{0}' cannot be obfuscated. It will be ignored.", ausdioClip.name));
+                Debug.LogError($"AudioClip '{ausdioClip.name}' cannot be obfuscated. It will be ignored.");
                 return ausdioClip;
             }
 
@@ -1011,8 +1070,29 @@ namespace Esska.AV3Obfuscator {
                 return obfuscatedAudioCLip;
             }
 
-            throw new System.Exception(string.Format("Obfuscation of AudioClip '{0}' failed", ausdioClip.name));
+            throw new System.Exception($"Obfuscation of AudioClip '{ausdioClip.name}' failed");
         }
 
+        string GetPhysBonesParameter(string parameter) {
+
+            foreach (var suffix in VRC_PHYS_BONES_SUFFIXES) {
+
+                if (parameter.EndsWith(suffix))
+                    return parameter.Substring(0, parameter.Length - suffix.Length);
+            }
+
+            return "";
+        }
+
+        string GetPhysBonesParameterSuffix(string parameter) {
+
+            foreach (var suffix in VRC_PHYS_BONES_SUFFIXES) {
+
+                if (parameter.EndsWith(suffix))
+                    return suffix;
+            }
+
+            return "";
+        }
     }
 }

@@ -4,10 +4,10 @@ using UnityEditor.Animations;
 using UnityEngine;
 using VRC.SDK3.Avatars.Components;
 
-namespace Esska.AV3Obfuscator {
+namespace Esska.AV3Obfuscator.Editor {
 
     [CustomEditor(typeof(AV3Obfuscator))]
-    public partial class AV3ObfuscatorEditor : Editor {
+    public partial class AV3ObfuscatorEditor : UnityEditor.Editor {
 
         AV3Obfuscator obfus;
         VRCAvatarDescriptor descriptor;
@@ -90,121 +90,134 @@ namespace Esska.AV3Obfuscator {
             GUILayout.EndVertical();
 
             GUILayout.Space(10f);
-            GUILayout.Label("Obfuscate (Optional)", EditorStyles.boldLabel);
 
-            GUILayout.BeginVertical(GUI.skin.box);
-            {
-                obfus.config.obfuscateLayers = EditorGUILayout.ToggleLeft(new GUIContent( "Layers, State Machines, States, Blend Trees", "Layers, State Machines, States, Blend Trees of any used Controller"), obfus.config.obfuscateLayers);
-            }
-            GUILayout.EndVertical();
+            obfus.config.showOptionalObfuscation = EditorGUILayout.Foldout(obfus.config.showOptionalObfuscation, "Obfuscate (Optional)", EditorStyles.foldoutHeader);
 
-            GUILayout.BeginVertical(GUI.skin.box);
-            {
-                obfus.config.obfuscateExpressionParameters = EditorGUILayout.ToggleLeft(new GUIContent("VRC Expression Parameters + Menus", "VRC Expression Parameters, Menu and Submenus"), obfus.config.obfuscateExpressionParameters);
+            if (obfus.config.showOptionalObfuscation) {
 
-                if (obfus.config.obfuscateExpressionParameters) {
-                    EditorGUI.indentLevel = 1;
-                    obfus.config.obfuscateParameters = EditorGUILayout.ToggleLeft(new GUIContent("Parameters", "Parameters of any used Controller"), obfus.config.obfuscateParameters);
+                GUILayout.BeginVertical(GUI.skin.box);
+                {
+                    obfus.config.obfuscateLayers = EditorGUILayout.ToggleLeft(new GUIContent("Layers, State Machines, States, Blend Trees", "Layers, State Machines, States, Blend Trees of any used Controller"), obfus.config.obfuscateLayers);
+                }
+                GUILayout.EndVertical();
 
-                    if (obfus.config.obfuscateParameters) {
-                        GUILayout.Space(5f);
-                        EditorGUILayout.HelpBox("Select parameters, which should be obfuscated. Reserved VRC parameters cannot be obfuscated. It's recommended to unselect parameters, which are driven by OSC. After every obfuscation, parameters will lose their previous saved value in VRC Menu.", MessageType.None, true);
-                        GUILayout.Space(5f);
+                GUILayout.BeginVertical(GUI.skin.box);
+                {
+                    obfus.config.obfuscateExpressionParameters = EditorGUILayout.ToggleLeft(new GUIContent("VRC Expression Parameters + Menus", "VRC Expression Parameters, Menu and Submenus"), obfus.config.obfuscateExpressionParameters);
 
-                        GUILayout.BeginHorizontal();
-                        {
-                            GUILayout.Space(16f);
+                    if (obfus.config.obfuscateExpressionParameters) {
+                        EditorGUI.indentLevel = 1;
+                        obfus.config.obfuscateParameters = EditorGUILayout.ToggleLeft(new GUIContent("Parameters", "Parameters of any used Controller"), obfus.config.obfuscateParameters);
 
-                            GUIStyle smallButton = new GUIStyle(GUI.skin.button) {
-                                fontSize = 9,
-                                alignment = TextAnchor.MiddleCenter
-                            };
+                        if (obfus.config.obfuscateParameters) {
+                            GUILayout.Space(5f);
+                            EditorGUILayout.HelpBox("Select parameters, which should be obfuscated. Reserved VRC parameters cannot be obfuscated. It's recommended to unselect parameters, which are driven by OSC. After every obfuscation, parameters will lose their previous saved value in VRC Menu.", MessageType.None, true);
+                            GUILayout.Space(5f);
 
-                            if (GUILayout.Button("Select All", smallButton)) {
+                            obfus.config.showParameterSelection = EditorGUILayout.Foldout(obfus.config.showParameterSelection, "Parameter Selection");
+
+                            if (obfus.config.showParameterSelection) {
+
+                                GUILayout.BeginHorizontal();
+                                {
+                                    GUILayout.Space(16f);
+
+                                    GUIStyle smallButton = new GUIStyle(GUI.skin.button) {
+                                        fontSize = 9,
+                                        alignment = TextAnchor.MiddleCenter
+                                    };
+
+                                    if (GUILayout.Button("Select All", smallButton)) {
+
+                                        foreach (var parameter in allParameters) {
+
+                                            if (!obfus.config.obfuscatedParameters.Contains(parameter)) {
+                                                obfus.config.obfuscatedParameters.Add(parameter);
+                                                EditorUtility.SetDirty(obfus);
+                                            }
+                                        }
+                                    }
+
+                                    if (GUILayout.Button("Unselect All", smallButton)) {
+                                        obfus.config.obfuscatedParameters.Clear();
+                                        EditorUtility.SetDirty(obfus);
+                                    }
+
+                                    GUILayout.FlexibleSpace();
+                                }
+                                GUILayout.EndHorizontal();
+
+                                GUILayout.Space(5f);
 
                                 foreach (var parameter in allParameters) {
 
-                                    if (!obfus.config.obfuscatedParameters.Contains(parameter)) {
-                                        obfus.config.obfuscatedParameters.Add(parameter);
-                                        EditorUtility.SetDirty(obfus);
+                                    if (Obfuscator.VRC_RESERVED_ANIMATOR_PARAMETERS.Contains(parameter)) {
+                                        GUI.enabled = false;
+                                        EditorGUILayout.ToggleLeft(parameter, false);
+                                        GUI.enabled = true;
+                                    }
+                                    else {
+                                        bool obfuscate = EditorGUILayout.ToggleLeft(parameter, obfus.config.obfuscatedParameters.Contains(parameter));
+
+                                        if (obfuscate && !obfus.config.obfuscatedParameters.Contains(parameter)) {
+                                            obfus.config.obfuscatedParameters.Add(parameter);
+                                            EditorUtility.SetDirty(obfus);
+                                        }
+                                        else if (!obfuscate && obfus.config.obfuscatedParameters.Contains(parameter)) {
+                                            obfus.config.obfuscatedParameters.Remove(parameter);
+                                            EditorUtility.SetDirty(obfus);
+                                        }
                                     }
                                 }
                             }
 
-                            if (GUILayout.Button("Unselect All", smallButton)) {
-                                obfus.config.obfuscatedParameters.Clear();
-                                EditorUtility.SetDirty(obfus);
-                            }
-
-                            GUILayout.FlexibleSpace();
+                            GUILayout.Space(5f);
                         }
-                        GUILayout.EndHorizontal();
 
-                        GUILayout.Space(5f);
+                        EditorGUI.indentLevel = 0;
+                    }
+                }
+                GUILayout.EndVertical();
 
-                        foreach (var parameter in allParameters) {
+                GUILayout.BeginVertical(GUI.skin.box);
+                {
+                    obfus.config.obfuscateMeshes = EditorGUILayout.ToggleLeft(new GUIContent("Meshes", "Meshes of any MeshFilter, SkinnedMeshRenderer, ParticleSystem or ParticleSystemRenderer"), obfus.config.obfuscateMeshes);
 
-                            if (Obfuscator.VRC_RESERVED_ANIMATOR_PARAMETERS.Contains(parameter)) {
-                                GUI.enabled = false;
-                                EditorGUILayout.ToggleLeft(parameter, false);
-                                GUI.enabled = true;
-                            }
-                            else {
-                                bool obfuscate = EditorGUILayout.ToggleLeft(parameter, obfus.config.obfuscatedParameters.Contains(parameter));
+                    if (obfus.config.obfuscateMeshes) {
+                        EditorGUI.indentLevel = 1;
+                        obfus.config.obfuscateBlendShapes = EditorGUILayout.ToggleLeft(new GUIContent("Blend Shapes", "Blend Shapes of any used Mesh"), obfus.config.obfuscateBlendShapes);
 
-                                if (obfuscate && !obfus.config.obfuscatedParameters.Contains(parameter)) {
-                                    obfus.config.obfuscatedParameters.Add(parameter);
-                                    EditorUtility.SetDirty(obfus);
-                                }
-                                else if (!obfuscate && obfus.config.obfuscatedParameters.Contains(parameter)) {
-                                    obfus.config.obfuscatedParameters.Remove(parameter);
-                                    EditorUtility.SetDirty(obfus);
-                                }
-                            }
+                        if (obfus.config.obfuscateBlendShapes) {
+                            GUILayout.Space(5f);
+                            EditorGUILayout.HelpBox("Obfuscating blend shapes will break face animations in MMD dances", MessageType.None, true);
+                            GUILayout.Space(5f);
                         }
+
+                        EditorGUI.indentLevel = 0;
                     }
-
-                    EditorGUI.indentLevel = 0;
                 }
-            }
-            GUILayout.EndVertical();
+                GUILayout.EndVertical();
 
-            GUILayout.BeginVertical(GUI.skin.box);
-            {
-                obfus.config.obfuscateMeshes = EditorGUILayout.ToggleLeft(new GUIContent("Meshes", "Meshes of any MeshFilter, SkinnedMeshRenderer, ParticleSystem or ParticleSystemRenderer"), obfus.config.obfuscateMeshes);
+                GUILayout.BeginVertical(GUI.skin.box);
+                {
+                    obfus.config.obfuscateMaterials = EditorGUILayout.ToggleLeft(new GUIContent("Materials", "Materials of any MeshRenderer, SkinnedMeshRenderer, ParticleSystemRenderer or AnimationClip"), obfus.config.obfuscateMaterials);
 
-                if (obfus.config.obfuscateMeshes) {
-                    EditorGUI.indentLevel = 1;
-                    obfus.config.obfuscateBlendShapes = EditorGUILayout.ToggleLeft(new GUIContent("Blend Shapes", "Blend Shapes of any used Mesh"), obfus.config.obfuscateBlendShapes);
-
-                    if (obfus.config.obfuscateBlendShapes) {
-                        GUILayout.Space(5f);
-                        EditorGUILayout.HelpBox("Obfuscating blend shapes will break face animations in MMD dances", MessageType.None, true);
-                        GUILayout.Space(5f);
+                    if (obfus.config.obfuscateMaterials) {
+                        EditorGUI.indentLevel = 1;
+                        obfus.config.obfuscateTextures = EditorGUILayout.ToggleLeft(new GUIContent("Textures", "Textures of any used Material, RenderTexture used of any Camera or Icons used in VRC Menus"), obfus.config.obfuscateTextures);
+                        EditorGUI.indentLevel = 0;
                     }
-
-                    EditorGUI.indentLevel = 0;
                 }
-            }
-            GUILayout.EndVertical();
+                GUILayout.EndVertical();
 
-            GUILayout.BeginVertical(GUI.skin.box);
-            {
-                obfus.config.obfuscateMaterials = EditorGUILayout.ToggleLeft(new GUIContent("Materials", "Materials of any MeshRenderer, SkinnedMeshRenderer, ParticleSystemRenderer or AnimationClip"), obfus.config.obfuscateMaterials);
-
-                if (obfus.config.obfuscateMaterials) {
-                    EditorGUI.indentLevel = 1;
-                    obfus.config.obfuscateTextures = EditorGUILayout.ToggleLeft(new GUIContent("Textures", "Textures of any used Material, RenderTexture used of any Camera or Icons used in VRC Menus"), obfus.config.obfuscateTextures);
-                    EditorGUI.indentLevel = 0;
+                GUILayout.BeginVertical(GUI.skin.box);
+                {
+                    obfus.config.obfuscateAudioClips = EditorGUILayout.ToggleLeft(new GUIContent("Audio Clips", "Audio Clips of any AudioSource"), obfus.config.obfuscateAudioClips);
                 }
+                GUILayout.EndVertical();
             }
-            GUILayout.EndVertical();
 
-            GUILayout.BeginVertical(GUI.skin.box);
-            {
-                obfus.config.obfuscateAudioClips = EditorGUILayout.ToggleLeft(new GUIContent("Audio Clips", "Audio Clips of any AudioSource"), obfus.config.obfuscateAudioClips);
-            }
-            GUILayout.EndVertical();
+            GUILayout.Space(10f);
 
             GUILayout.BeginHorizontal();
             {
