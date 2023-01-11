@@ -1,4 +1,4 @@
-**IMPORTANT:** V2.0.0: Installation method has changed! Please read the "Installation" section below.
+**IMPORTANT:** V2.0: Installation method has changed! Please read the "Installation" section below.
 
 
 # Esska AV3Obfuscator
