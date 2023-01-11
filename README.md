@@ -42,7 +42,7 @@ Currently, Shaders will not be obfuscated.
 
 ## Installation
 
-There is no .unitypackage file anymore. You can use the Unity Package Manager or VRChat Crator Companion to install the package.
+There is no .unitypackage file anymore. You can use the Unity Package Manager or VRChat Creator Companion to install the package.
 
 If you have already installed a version before 2.0, you have to delete the Assets/Esska/AV3Obfuscator folder in the Unity "Project" pane first. This will invalidate the AV3 Obfuscator script on your avatar. Don't panic - after following the steps below, all scripts you added and settings you made, will be available again.
 
