@@ -1,3 +1,6 @@
+**IMPORTANT:** V2.0.0: Installation method has changed! Please read the "Installation" section below.
+
+
 # Esska AV3Obfuscator
 
 This software allows you to obfuscate your VRChat avatar.
@@ -36,6 +39,24 @@ Optional, following data can be obfuscated:
 ## What will not be obfuscated?
 
 Currently, Shaders will not be obfuscated.
+
+## Installation
+
+There is no .unitypackage file anymore. You can use the Unity Package Manager or VRChat Crator Companion to install the package.
+
+If you have already installed a version before 2.0, you have to delete the Assets/Esska/AV3Obfuscator folder in the Unity "Project" pane first. This will invalidate the AV3 Obfuscator script on your avatar. Don't panic - after following the steps below, all scripts you added and settings you made, will be available again.
+
+### Unity
+
+Package Manager: Click on the "+" icon on left top and select "Add package from git URL...". Enter the Git-URL of this repository. When a new version is available, you will be notificated and you can update to the latest version in the Package Manager.
+
+Alternatively, download and unzip the package somewhere on your harddisk or clone the repository. Using the "+" icon in the Package Manager, select ""Add package from disk..." and select the package.json in the folder you have unzipped/cloned before.
+
+### VRChat Creator Companion
+
+Download and unzip the package somewhere on your harddisk or clone the repository.
+
+Creator Companion -> Settings -> User Packages: Add the folder you have unzipped/cloned before. On your project, allow "Local User Packages" in the dropdown field on top. Now, you see "Esska AV3 Obfuscator" in the list. You can add or remove it to any of your projects.
 
 ## Usage
 
