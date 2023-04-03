@@ -754,26 +754,34 @@ namespace Esska.AV3Obfuscator.Editor {
 
                 for (int i = 0; i < bindings.Length; i++) {
 
-                    if (string.IsNullOrEmpty(bindings[i].path))
-                        continue;
+                    if (!string.IsNullOrEmpty(bindings[i].path)) {
+                        int index = transformPaths.IndexOf(bindings[i].path);
 
-                    int index = transformPaths.IndexOf(bindings[i].path);
+                        if (index >= 0) {
+                            AnimationCurve curve = AnimationUtility.GetEditorCurve(obfuscatedClip, bindings[i]);
+                            AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
+                            bindings[i].path = obfuscatedTransformPaths[index];
 
-                    if (index >= 0) {
+                            if (config.obfuscateBlendShapes && bindings[i].propertyName.StartsWith("blendShape.")) {
+                                string blendShapeName = bindings[i].propertyName.Replace("blendShape.", "");
+                                bindings[i].propertyName = "blendShape." + ObfuscateBlendShape(blendShapeName);
+                            }
+
+                            AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], curve);
+                        }
+                        else {
+                            AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
+                            Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);
+                        }
+                    }
+                    else if (!string.IsNullOrEmpty(bindings[i].propertyName) && obfuscatedParameters.ContainsKey(bindings[i].propertyName)) {
                         AnimationCurve curve = AnimationUtility.GetEditorCurve(obfuscatedClip, bindings[i]);
                         AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
-                        bindings[i].path = obfuscatedTransformPaths[index];
-
-                        if (config.obfuscateBlendShapes && bindings[i].propertyName.StartsWith("blendShape.")) {
-                            string blendShapeName = bindings[i].propertyName.Replace("blendShape.", "");
-                            bindings[i].propertyName = "blendShape." + ObfuscateBlendShape(blendShapeName);
-                        }
-
+                        bindings[i].propertyName = obfuscatedParameters[bindings[i].propertyName];
                         AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], curve);
                     }
                     else {
-                        AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
-                        Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);
+                        continue;
                     }
                 }
 
@@ -781,30 +789,33 @@ namespace Esska.AV3Obfuscator.Editor {
 
                 for (int i = 0; i < bindings.Length; i++) {
 
-                    if (string.IsNullOrEmpty(bindings[i].path))
-                        continue;
+                    if (!string.IsNullOrEmpty(bindings[i].path)) {
 
-                    int index = transformPaths.IndexOf(bindings[i].path);
+                        int index = transformPaths.IndexOf(bindings[i].path);
 
-                    if (index >= 0) {
-                        ObjectReferenceKeyframe[] references = AnimationUtility.GetObjectReferenceCurve(obfuscatedClip, bindings[i]);
-                        AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], null);
-                        bindings[i].path = obfuscatedTransformPaths[index];
+                        if (index >= 0) {
+                            ObjectReferenceKeyframe[] references = AnimationUtility.GetObjectReferenceCurve(obfuscatedClip, bindings[i]);
+                            AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], null);
+                            bindings[i].path = obfuscatedTransformPaths[index];
 
-                        if (config.obfuscateMaterials && bindings[i].isPPtrCurve) {
+                            if (config.obfuscateMaterials && bindings[i].isPPtrCurve) {
 
-                            for (int r = 0; r < references.Length; r++) {
+                                for (int r = 0; r < references.Length; r++) {
 
-                                if (references[r].value is Material)
-                                    references[r].value = ObfuscateMaterial((Material)references[r].value);
+                                    if (references[r].value is Material)
+                                        references[r].value = ObfuscateMaterial((Material)references[r].value);
+                                }
                             }
-                        }
 
-                        AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], references);
+                            AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], references);
+                        }
+                        else {
+                            AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], null);
+                            Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);
+                        }
                     }
                     else {
-                        AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], null);
-                        Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);
+                        continue;
                     }
                 }
 
