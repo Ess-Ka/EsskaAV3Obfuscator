@@ -762,7 +762,7 @@ namespace Esska.AV3Obfuscator.Editor {
                             AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
                             bindings[i].path = obfuscatedTransformPaths[index];
 
-                            if (config.obfuscateBlendShapes && bindings[i].propertyName.StartsWith("blendShape.")) {
+                            if (config.obfuscateMeshes && config.obfuscateBlendShapes && bindings[i].propertyName.StartsWith("blendShape.")) {
                                 string blendShapeName = bindings[i].propertyName.Replace("blendShape.", "");
                                 bindings[i].propertyName = "blendShape." + ObfuscateBlendShape(blendShapeName);
                             }
