@@ -36,6 +36,7 @@ namespace Esska.AV3Obfuscator.Editor {
 
         public static readonly List<string> VRC_PHYS_BONES_SUFFIXES = new List<string>() {
             "_IsGrabbed",
+            "_IsPosed",
             "_Angle",
             "_Stretch"
         };
@@ -56,6 +57,7 @@ namespace Esska.AV3Obfuscator.Editor {
         Dictionary<AvatarMask, AvatarMask> obfuscatedAvatarMasks;
         Dictionary<string, string> obfuscatedBlendShapeNames;
         Dictionary<BlendTree, BlendTree> obfuscatedBlendTrees;
+        Dictionary<VRCExpressionsMenu, VRCExpressionsMenu> obfuscatedExpressionMenus;
         Dictionary<Material, Material> obfuscatedMaterials;
         Dictionary<Mesh, Mesh> obfuscatedMeshes;
         Dictionary<string, string> obfuscatedParameters;
@@ -175,6 +177,7 @@ namespace Esska.AV3Obfuscator.Editor {
             obfuscatedAvatarMasks = new Dictionary<AvatarMask, AvatarMask>();
             obfuscatedBlendShapeNames = new Dictionary<string, string>();
             obfuscatedBlendTrees = new Dictionary<BlendTree, BlendTree>();
+            obfuscatedExpressionMenus = new Dictionary<VRCExpressionsMenu, VRCExpressionsMenu>();
             obfuscatedMaterials = new Dictionary<Material, Material>();
             obfuscatedMeshes = new Dictionary<Mesh, Mesh>();
             obfuscatedParameters = new Dictionary<string, string>();
@@ -932,8 +935,12 @@ namespace Esska.AV3Obfuscator.Editor {
         VRCExpressionsMenu ObfuscateExpressionMenu(VRCExpressionsMenu menu) {
             string newPath = GetObfuscatedPath<VRCExpressionsMenu>();
 
-            if (AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(menu), newPath)) {
+            if (obfuscatedExpressionMenus.ContainsKey(menu))
+                return obfuscatedExpressionMenus[menu];
+            else if (AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(menu), newPath)) {
                 VRCExpressionsMenu obfuscatedMenu = AssetDatabase.LoadAssetAtPath<VRCExpressionsMenu>(newPath);
+
+                obfuscatedExpressionMenus.Add(menu, obfuscatedMenu);
 
                 foreach (var control in obfuscatedMenu.controls) {
 
@@ -952,8 +959,14 @@ namespace Esska.AV3Obfuscator.Editor {
                     if (config.obfuscateMaterials && config.obfuscateTextures && control.icon != null)
                         control.icon = (Texture2D)ObfuscateTexture(control.icon);
 
-                    if (control.subMenu != null)
-                        control.subMenu = ObfuscateExpressionMenu(control.subMenu);
+
+                    if (control.subMenu != null) {
+
+                        if (control.type == VRCExpressionsMenu.Control.ControlType.SubMenu)
+                            control.subMenu = ObfuscateExpressionMenu(control.subMenu);
+                        else
+                            control.subMenu = null;
+                    }
                 }
 
                 return obfuscatedMenu;
