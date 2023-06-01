@@ -728,10 +728,10 @@ namespace Esska.AV3Obfuscator.Editor {
 
                 foreach (var parameter in parameterDriver.parameters) {
 
-                    if (obfuscatedParameters.ContainsKey(parameter.name))
+                    if (parameter.name != null && obfuscatedParameters.ContainsKey(parameter.name))
                         parameter.name = obfuscatedParameters[parameter.name];
 
-                    if (obfuscatedParameters.ContainsKey(parameter.source))
+                    if (parameter.source != null && obfuscatedParameters.ContainsKey(parameter.source))
                         parameter.source = obfuscatedParameters[parameter.source];
                 }
             }
