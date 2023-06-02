@@ -89,6 +89,15 @@ namespace Esska.AV3Obfuscator.Editor {
             }
             GUILayout.EndVertical();
 
+            GUILayout.BeginVertical(GUI.skin.box);
+            {
+                obfus.config.preserveMMD = EditorGUILayout.ToggleLeft(new GUIContent("Preserve MMD"), obfus.config.preserveMMD);
+                GUILayout.Space(5f);
+                EditorGUILayout.HelpBox("If you enable this checkbox, the name of the 'Body' transform and all blend shapes on it will not be obfuscated. This ensures that MMD still works.", MessageType.None, true);
+                GUILayout.Space(5f);
+            }
+            GUILayout.EndVertical();
+
             GUILayout.Space(10f);
 
             obfus.config.showOptionalObfuscation = EditorGUILayout.Foldout(obfus.config.showOptionalObfuscation, "Obfuscate (Optional)", EditorStyles.foldoutHeader);
@@ -189,7 +198,10 @@ namespace Esska.AV3Obfuscator.Editor {
 
                         if (obfus.config.obfuscateBlendShapes) {
                             GUILayout.Space(5f);
-                            EditorGUILayout.HelpBox("Obfuscating blend shapes will break face animations in MMD dances", MessageType.None, true);
+                            if (!obfus.config.preserveMMD)
+                                EditorGUILayout.HelpBox("Obfuscating blend shapes will break face animations in MMD dances. If you want prevent that, set the 'Preserve MMD' checkbox.", MessageType.None, true);
+                            else
+                                EditorGUILayout.HelpBox("Blend shapes on the 'Body' transform will not be obfuscated, because the 'Preserve MMD' checkbox is set.", MessageType.None, true);
                             GUILayout.Space(5f);
                         }
 

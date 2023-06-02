@@ -51,6 +51,12 @@ After the package was added, click on the "Project" tab in the Creator Companion
 
 After import the UnityPackage, add the AV3Obfuscator component to your root avatar GameObject. Choose the options described below and run the obfuscation. If you upload the avatar for the first time, you have to transfer the avatar ID to your original file.
 
+**IMPORTANT:** If your avatar was not obfuscated before, delete it from VRChat servers first! If you dont do that, your not obfuscated version can still be accessed over the VRChat servers. Someone who want see the content could simply download an older version of it.
+
+### Preserve MMD
+
+If you enable this checkbox, the name of the "Body" transform and all Blend Shapes on it will not be obfuscated. This ensures that MMD still works.
+
 ### Layers, State Machines, States, Blend Trees
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045078-a90af8e5-17b0-410b-838c-28424dff3e9a.png)
@@ -87,7 +93,7 @@ Obfuscates Meshes of any MeshFilter, SkinnedMeshRenderer, ParticleSystem or Part
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045267-567e3508-c2f7-40eb-bea8-61d8a3fcbb27.png)
 
-Obfuscates Blend Shapes of any used Mesh. This will break face animations in MMD dances.
+Obfuscates Blend Shapes of any used Mesh. This will break face animations in MMD dances. If you want prevent that, set the "Preserve MMD" checkbox on top.
 
 ### Materials
 

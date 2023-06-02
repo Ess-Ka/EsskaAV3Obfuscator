@@ -41,6 +41,10 @@ namespace Esska.AV3Obfuscator.Editor {
             "_Stretch"
         };
 
+        public static readonly List<string> TRANSFORM_NAMES_MMD = new List<string>() {
+            "Body"
+        };
+
         const string TITLE = "AV3Obfuscator";
         const string FOLDER = "Obfuscated";
         const string SUFFIX = "_Obfuscated";
@@ -214,6 +218,10 @@ namespace Esska.AV3Obfuscator.Editor {
 
             for (int i = 0; i < transform.childCount; i++) {
                 Transform child = transform.GetChild(i);
+
+                if (config.preserveMMD && child.parent == rootTransform && TRANSFORM_NAMES_MMD.Contains(child.name))
+                    continue;
+
                 transformNames.Add(child.name);
                 transformPaths.Add(AnimationUtility.CalculateTransformPath(child, rootTransform));
                 CollectTransforms(rootTransform, child);
@@ -224,6 +232,10 @@ namespace Esska.AV3Obfuscator.Editor {
 
             for (int i = 0; i < transform.childCount; i++) {
                 Transform child = transform.GetChild(i);
+
+                if (config.preserveMMD && child.parent == rootTransform && TRANSFORM_NAMES_MMD.Contains(child.name))
+                    continue;
+
                 child.name = GUID.Generate().ToString();
                 obfuscatedTransformNames.Add(child.name);
                 obfuscatedTransformPaths.Add(AnimationUtility.CalculateTransformPath(child, rootTransform));
@@ -316,20 +328,24 @@ namespace Esska.AV3Obfuscator.Editor {
             ParticleSystemRenderer[] particleSystemRenderers = descriptor.GetComponentsInChildren<ParticleSystemRenderer>(true);
 
             foreach (var renderer in skinnedMeshRenderers) {
-                renderer.sharedMesh = ObfuscateMeshAndBlendShapes(renderer.sharedMesh);
+
+                if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(renderer.name))
+                    renderer.sharedMesh = ObfuscateMeshAndBlendShapes(renderer.sharedMesh, false);
+                else
+                    renderer.sharedMesh = ObfuscateMeshAndBlendShapes(renderer.sharedMesh, true);
             }
 
             foreach (var filter in meshFilters) {
-                filter.sharedMesh = ObfuscateMeshAndBlendShapes(filter.sharedMesh);
+                filter.sharedMesh = ObfuscateMeshAndBlendShapes(filter.sharedMesh, true);
             }
 
             foreach (var particleSystem in particleSystems) {
                 ParticleSystem.ShapeModule shapeModule = particleSystem.shape;
-                shapeModule.mesh = ObfuscateMeshAndBlendShapes(shapeModule.mesh);
+                shapeModule.mesh = ObfuscateMeshAndBlendShapes(shapeModule.mesh, true);
             }
 
             foreach (var renderer in particleSystemRenderers) {
-                renderer.mesh = ObfuscateMeshAndBlendShapes(renderer.mesh);
+                renderer.mesh = ObfuscateMeshAndBlendShapes(renderer.mesh, true);
             }
 
             if (config.obfuscateBlendShapes) {
@@ -342,7 +358,7 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        Mesh ObfuscateMeshAndBlendShapes(Mesh mesh) {
+        Mesh ObfuscateMeshAndBlendShapes(Mesh mesh, bool obfuscateBlendShapes) {
 
             if (mesh == null)
                 return null;
@@ -400,7 +416,7 @@ namespace Esska.AV3Obfuscator.Editor {
                         float weight = mesh.GetBlendShapeFrameWeight(shapeIndex, frameIndex);
                         string blendShapeName = mesh.GetBlendShapeName(shapeIndex);
 
-                        if (config.obfuscateBlendShapes)
+                        if (config.obfuscateBlendShapes && obfuscateBlendShapes)
                             blendShapeName = ObfuscateBlendShape(blendShapeName);
 
                         obfuscatedMesh.AddBlendShapeFrame(blendShapeName, weight, deltaVertices, deltaNormals, deltaTangents);
@@ -637,17 +653,21 @@ namespace Esska.AV3Obfuscator.Editor {
                 obfuscatedAvatarMasks.Add(avatarMask, obfuscatedAvatarMask);
 
                 for (int i = 0; i < obfuscatedAvatarMask.transformCount; i++) {
+                    string transformPath = obfuscatedAvatarMask.GetTransformPath(i);
 
-                    if (string.IsNullOrEmpty(obfuscatedAvatarMask.GetTransformPath(i)))
+                    if (string.IsNullOrEmpty(transformPath))
                         continue;
 
-                    int index = transformPaths.IndexOf(obfuscatedAvatarMask.GetTransformPath(i));
+                    if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(transformPath))
+                        continue;
+
+                    int index = transformPaths.IndexOf(transformPath);
 
                     if (index >= 0) {
                         obfuscatedAvatarMask.SetTransformPath(i, obfuscatedTransformPaths[index]);
                     }
                     else {
-                        Debug.LogError($"Path '{obfuscatedAvatarMask.GetTransformPath(i)}' in AvatarMask '{avatarMask.name}' doesn't exist in the Transform hierarchy. You should update the Transforms in the AvatarMask. The path will be obfuscated independently of this.", avatarMask);
+                        Debug.LogError($"Path '{transformPath}' in AvatarMask '{avatarMask.name}' doesn't exist in the Transform hierarchy. You should update the Transforms in the AvatarMask. The path will be obfuscated independently of this.", avatarMask);
                         obfuscatedAvatarMask.SetTransformPath(i, GUID.Generate().ToString());
                     }
                 }
@@ -772,6 +792,8 @@ namespace Esska.AV3Obfuscator.Editor {
 
                             AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], curve);
                         }
+                        else if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path))
+                            continue;
                         else {
                             AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
                             Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);
@@ -812,6 +834,8 @@ namespace Esska.AV3Obfuscator.Editor {
 
                             AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], references);
                         }
+                        else if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path))
+                            continue;
                         else {
                             AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], null);
                             Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);
