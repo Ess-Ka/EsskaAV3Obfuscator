@@ -5,7 +5,7 @@
 
 This software allows you to obfuscate your VRChat avatar.
 
-![grafik](https://user-images.githubusercontent.com/84975839/172044969-6f212d45-a45f-4b0b-afaf-f43862618153.png)
+![grafik](https://github.com/Ess-Ka/EsskaAV3Obfuscator/assets/84975839/5350386b-f83f-4b95-8d73-f2a9ac1323cd)
 
 ## What is obfuscation?
 
