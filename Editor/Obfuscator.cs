@@ -61,6 +61,7 @@ namespace Esska.AV3Obfuscator.Editor {
         Dictionary<AvatarMask, AvatarMask> obfuscatedAvatarMasks;
         Dictionary<string, string> obfuscatedBlendShapeNames;
         Dictionary<BlendTree, BlendTree> obfuscatedBlendTrees;
+        Dictionary<AnimatorController, AnimatorController> obfuscatedControllers;
         Dictionary<VRCExpressionsMenu, VRCExpressionsMenu> obfuscatedExpressionMenus;
         Dictionary<Material, Material> obfuscatedMaterials;
         Dictionary<Mesh, Mesh> obfuscatedMeshes;
@@ -181,6 +182,7 @@ namespace Esska.AV3Obfuscator.Editor {
             obfuscatedAvatarMasks = new Dictionary<AvatarMask, AvatarMask>();
             obfuscatedBlendShapeNames = new Dictionary<string, string>();
             obfuscatedBlendTrees = new Dictionary<BlendTree, BlendTree>();
+            obfuscatedControllers = new Dictionary<AnimatorController, AnimatorController>();
             obfuscatedExpressionMenus = new Dictionary<VRCExpressionsMenu, VRCExpressionsMenu>();
             obfuscatedMaterials = new Dictionary<Material, Material>();
             obfuscatedMeshes = new Dictionary<Mesh, Mesh>();
@@ -225,6 +227,9 @@ namespace Esska.AV3Obfuscator.Editor {
                 transformNames.Add(child.name);
                 transformPaths.Add(AnimationUtility.CalculateTransformPath(child, rootTransform));
                 CollectTransforms(rootTransform, child);
+
+                if (child.GetComponent<Animator>() != null)
+                    CollectTransforms(child, child);
             }
         }
 
@@ -240,6 +245,9 @@ namespace Esska.AV3Obfuscator.Editor {
                 obfuscatedTransformNames.Add(child.name);
                 obfuscatedTransformPaths.Add(AnimationUtility.CalculateTransformPath(child, rootTransform));
                 CollectObfuscatedTransforms(rootTransform, child);
+
+                if (child.GetComponent<Animator>() != null)
+                    CollectObfuscatedTransforms(child, child);
             }
         }
 
@@ -545,6 +553,19 @@ namespace Esska.AV3Obfuscator.Editor {
                 }
             }
 
+            Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
+
+            foreach (var item in animators) {
+
+                if (item == animator)
+                    continue;
+
+                AnimatorController obfuscatedController = ObfuscateController((AnimatorController)item.runtimeAnimatorController);
+
+                if (obfuscatedController != null)
+                    item.runtimeAnimatorController = obfuscatedController;
+            }
+
             if (animator.runtimeAnimatorController != null && !runtimeAnimatorValid)
                 Debug.LogError("Controller in Animator component cannot be obfuscated. You should set an controller, which is part of your playable layers (e.g. FX controller).", animator);
         }
@@ -552,7 +573,10 @@ namespace Esska.AV3Obfuscator.Editor {
         AnimatorController ObfuscateController(AnimatorController controller) {
             string newPath = GetObfuscatedPath<AnimatorController>();
 
-            if (AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(controller), newPath)) {
+            if (obfuscatedControllers.ContainsKey(controller)) {
+                return obfuscatedControllers[controller];
+            }
+            else if (AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(controller), newPath)) {
                 AnimatorController obfuscatedController = AssetDatabase.LoadAssetAtPath<AnimatorController>(newPath);
 
                 // Parameters
@@ -792,8 +816,9 @@ namespace Esska.AV3Obfuscator.Editor {
 
                             AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], curve);
                         }
-                        else if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path))
+                        else if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path)) {
                             continue;
+                        }
                         else {
                             AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
                             Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);
@@ -834,8 +859,9 @@ namespace Esska.AV3Obfuscator.Editor {
 
                             AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], references);
                         }
-                        else if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path))
+                        else if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path)) {
                             continue;
+                        }
                         else {
                             AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], null);
                             Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);

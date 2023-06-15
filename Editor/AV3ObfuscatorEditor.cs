@@ -65,6 +65,18 @@ namespace Esska.AV3Obfuscator.Editor {
                     }
                 }
 
+                Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
+
+                foreach (var item in animators) {
+                    AnimatorController controller = (AnimatorController)item.runtimeAnimatorController;
+
+                    foreach (var parameter in controller.parameters) {
+
+                        if (!allParameters.Contains(parameter.name))
+                            allParameters.Add(parameter.name);
+                    }
+                }
+
                 for (int i = obfus.config.obfuscatedParameters.Count - 1; i >= 0; i--) {
 
                     if (!allParameters.Contains(obfus.config.obfuscatedParameters[i]))
