@@ -68,6 +68,10 @@ namespace Esska.AV3Obfuscator.Editor {
                 Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
 
                 foreach (var item in animators) {
+
+                    if (item.runtimeAnimatorController == null)
+                        continue;
+
                     AnimatorController controller = (AnimatorController)item.runtimeAnimatorController;
 
                     foreach (var parameter in controller.parameters) {

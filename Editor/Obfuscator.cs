@@ -557,7 +557,7 @@ namespace Esska.AV3Obfuscator.Editor {
 
             foreach (var item in animators) {
 
-                if (item == animator)
+                if (item == animator || item.runtimeAnimatorController == null)
                     continue;
 
                 AnimatorController obfuscatedController = ObfuscateController((AnimatorController)item.runtimeAnimatorController);
