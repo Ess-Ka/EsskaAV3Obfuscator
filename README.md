@@ -9,7 +9,7 @@ This software allows you to obfuscate your VRChat avatar.
 
 ## What is obfuscation?
 
-Obfuscation means, remove all human readable content and replace it by something random. In case of AV3Obfuscator, all strings or filenames will be obfuscated. Someone which steals your avatar, has still access to your assets (e.g. Meshes, Materials and Textures). But if your avatar is obfuscated, it will be more complicated to work with your data. Someone which want see the content of your GameObject, sees only garbage.
+Obfuscation means, remove all human readable content and replace it by something random. In case of AV3Obfuscator, all strings or filenames will be obfuscated. Someone which steals your avatar, has still access to your assets (e.g. meshes, materials and textures). But if your avatar is obfuscated, it will be more complicated to work with your data. Someone which want see the content of your game object, sees only garbage.
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045220-3480adbb-e58d-4164-9b5a-c7bb0c97106b.png)
 
@@ -19,26 +19,26 @@ AV3Obfuscator does not encrypt any of your data. But you can combinate avatar en
 
 Following data will be obfuscated by default:
 
-- Entire Transform hierarchy
+- Entire transform hierarchy
 - Controllers
-- Avatar (of Animator component)
-- Avatar Masks
-- Animation Clips
+- Avatar (of animator component)
+- Avatar masks
+- Animation clips
 
 Optional, following data can be obfuscated:
 
-- Layers, State Machines, States, Blend Trees
-- VRC Expression Parameters + Menus
+- Layers, state machines, states, blend trees
+- VRC expression parameters + menus
 - Parameters (except of reserved VRC parameters)
 - Meshes
-- Blend Shapes
+- Blend shapes
 - Materials
 - Textures
-- Audio Clips
+- Audio clips
 
 ## What will not be obfuscated?
 
-Currently, Shaders will not be obfuscated.
+Currently, shaders will not be obfuscated. Additional animators below the hierarchy are not supported.
 
 ## Installation
 
@@ -49,7 +49,7 @@ After the package was added, click on the "Project" tab in the Creator Companion
 
 ## Usage
 
-After import the UnityPackage, add the AV3Obfuscator component to your root avatar GameObject. Choose the options described below and run the obfuscation. If you upload the avatar for the first time, you have to transfer the avatar ID to your original file.
+Add the AV3Obfuscator component to your root avatar game object. Choose the options described below and run the obfuscation. If you upload the avatar for the first time, you have to transfer the avatar ID to your original file.
 
 **IMPORTANT:** If your avatar was not obfuscated before, delete it from VRChat servers first! If you dont do that, your not obfuscated version can still be accessed over the VRChat servers. Someone who want see the content could simply download an older version of it.
 
@@ -61,19 +61,19 @@ If you enable this checkbox, the name of the "Body" transform and all Blend Shap
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045078-a90af8e5-17b0-410b-838c-28424dff3e9a.png)
 
-Obfuscates Layers, State Machines, States, Blend Trees of any used Controller.
+Obfuscates layers, state machines, states and blend trees of any used controller.
 
 ### VRC Expressions + Menus
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045160-3599712c-f9a0-4c0e-9c3e-7bb39b893dc4.png)
 
-Obfuscates VRC Expression Parameters, Menu and Submenus.
+Obfuscates VRC expression parameters, menu and submenus.
 
 ### Parameters
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045110-0bf33ec7-d2f8-478a-b24b-a665da12c296.png)
 
-Obfuscates the selected parameters used by any Controller, State, StateBehaviour, BlendTree, Transition or used by any VRC Expression Menu. Reserved VRC parameters cannot be obfuscated.
+Obfuscates the selected parameters used by any controller, state, state behaviour, blend tree, transition or used by any VRC expression menu. Reserved VRC parameters cannot be obfuscated.
 
 #### GTAvaCrypt Parameters ####
 
@@ -87,40 +87,40 @@ If you use OSC driven parameters (e.g. VRCFT FaceTracking), you should unselect 
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045255-eb83c061-cedc-4b52-842e-e99902d851c3.png)
 
-Obfuscates Meshes of any MeshFilter, SkinnedMeshRenderer, ParticleSystem or ParticleSystemRenderer.
+Obfuscates meshes of any mesh filter, skinned mesh renderer, particle system or particle system renderer.
 
 ### Blend Shapes
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045267-567e3508-c2f7-40eb-bea8-61d8a3fcbb27.png)
 
-Obfuscates Blend Shapes of any used Mesh. This will break face animations in MMD dances. If you want prevent that, set the "Preserve MMD" checkbox on top.
+Obfuscates blend shapes of any used mesh. This will break face animations in MMD dances. If you want prevent that, set the "Preserve MMD" checkbox on top.
 
 ### Materials
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045276-5ec7a318-7200-4e20-bf6f-7f7fe7b76443.png)
 
-Obfuscates Materials of any MeshRenderer, SkinnedMeshRenderer, ParticleSystemRenderer or AnimationClip.
+Obfuscates materials of any mesh renderer, skinned mesh renderer, particle system renderer or animation clip.
 
 ### Textures
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172046927-2c6408f2-d010-4b23-b97c-87e06284de1c.png)
 
-Obfuscates Textures of any used Material, RenderTextures used by any Camera or Icons used in VRC Menus.
+Obfuscates textures of any used material, render textures used by any camera or icons used in VRC menus.
 
 ### Audio Clips
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045320-d9deb184-deaf-4209-9d37-3e56b7ba6652.png)
 
-Obfuscates Audio Clips of any AudioSource.
+Obfuscates audio clips of any audio source.
 
 ### Obfuscate
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045336-bde72aed-80bb-4bfb-b7a5-6f18973b6115.png)
 
-This starts the obfuscation. Your avatar GameObject will be copied and all obfuscated data will be stored in the Assets/Obfuscated folder. Depending on amount of files, this process may take some time. Errors will be shown in console window.
+This starts the obfuscation. Your avatar game object will be copied and all obfuscated data will be stored in the Assets/Obfuscated folder. Depending on amount of files, this process may take some time. Errors will be shown in console window.
 
 ### Clear Obfuscated Data
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045352-7d1844c1-ee24-4746-9e83-36697b1a2827.png)
 
-Removes the obfuscated GameObject and the obfuscated data in the Assets/Obfuscated folder.
+Removes the obfuscated game object and the obfuscated data in the Assets/Obfuscated folder.
