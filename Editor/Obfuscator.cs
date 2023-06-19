@@ -61,7 +61,6 @@ namespace Esska.AV3Obfuscator.Editor {
         Dictionary<AvatarMask, AvatarMask> obfuscatedAvatarMasks;
         Dictionary<string, string> obfuscatedBlendShapeNames;
         Dictionary<BlendTree, BlendTree> obfuscatedBlendTrees;
-        Dictionary<AnimatorController, AnimatorController> obfuscatedControllers;
         Dictionary<VRCExpressionsMenu, VRCExpressionsMenu> obfuscatedExpressionMenus;
         Dictionary<Material, Material> obfuscatedMaterials;
         Dictionary<Mesh, Mesh> obfuscatedMeshes;
@@ -117,6 +116,14 @@ namespace Esska.AV3Obfuscator.Editor {
 
             if (animator == null)
                 throw new System.Exception("Animator component is missing");
+
+            if (animator.avatar == null)
+                throw new System.Exception("Animator has no avatar");
+
+            Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
+
+            if (animators.Length > 1) 
+                throw new System.Exception("More than one animator found. Obfuscation of additional animators below the hierarchy is not supported.");
 
             Init();
 
@@ -182,7 +189,6 @@ namespace Esska.AV3Obfuscator.Editor {
             obfuscatedAvatarMasks = new Dictionary<AvatarMask, AvatarMask>();
             obfuscatedBlendShapeNames = new Dictionary<string, string>();
             obfuscatedBlendTrees = new Dictionary<BlendTree, BlendTree>();
-            obfuscatedControllers = new Dictionary<AnimatorController, AnimatorController>();
             obfuscatedExpressionMenus = new Dictionary<VRCExpressionsMenu, VRCExpressionsMenu>();
             obfuscatedMaterials = new Dictionary<Material, Material>();
             obfuscatedMeshes = new Dictionary<Mesh, Mesh>();
@@ -227,9 +233,6 @@ namespace Esska.AV3Obfuscator.Editor {
                 transformNames.Add(child.name);
                 transformPaths.Add(AnimationUtility.CalculateTransformPath(child, rootTransform));
                 CollectTransforms(rootTransform, child);
-
-                if (child.GetComponent<Animator>() != null)
-                    CollectTransforms(child, child);
             }
         }
 
@@ -245,9 +248,6 @@ namespace Esska.AV3Obfuscator.Editor {
                 obfuscatedTransformNames.Add(child.name);
                 obfuscatedTransformPaths.Add(AnimationUtility.CalculateTransformPath(child, rootTransform));
                 CollectObfuscatedTransforms(rootTransform, child);
-
-                if (child.GetComponent<Animator>() != null)
-                    CollectObfuscatedTransforms(child, child);
             }
         }
 
@@ -555,17 +555,6 @@ namespace Esska.AV3Obfuscator.Editor {
 
             Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
 
-            foreach (var item in animators) {
-
-                if (item == animator || item.runtimeAnimatorController == null)
-                    continue;
-
-                AnimatorController obfuscatedController = ObfuscateController((AnimatorController)item.runtimeAnimatorController);
-
-                if (obfuscatedController != null)
-                    item.runtimeAnimatorController = obfuscatedController;
-            }
-
             if (animator.runtimeAnimatorController != null && !runtimeAnimatorValid)
                 Debug.LogError("Controller in Animator component cannot be obfuscated. You should set an controller, which is part of your playable layers (e.g. FX controller).", animator);
         }
@@ -573,10 +562,7 @@ namespace Esska.AV3Obfuscator.Editor {
         AnimatorController ObfuscateController(AnimatorController controller) {
             string newPath = GetObfuscatedPath<AnimatorController>();
 
-            if (obfuscatedControllers.ContainsKey(controller)) {
-                return obfuscatedControllers[controller];
-            }
-            else if (AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(controller), newPath)) {
+            if (AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(controller), newPath)) {
                 AnimatorController obfuscatedController = AssetDatabase.LoadAssetAtPath<AnimatorController>(newPath);
 
                 // Parameters
@@ -1091,7 +1077,7 @@ namespace Esska.AV3Obfuscator.Editor {
                 return texture;
             }
             else if (path.Contains("unity_builtin")) {
-                Debug.LogError("Unity built-in Texture '{texture.name}' cannot be obfuscated. It will be ignored.");
+                Debug.LogError($"Unity built-in Texture '{texture.name}' cannot be obfuscated. It will be ignored.");
                 return texture;
             }
 

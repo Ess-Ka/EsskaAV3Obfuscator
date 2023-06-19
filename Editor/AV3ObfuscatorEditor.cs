@@ -30,7 +30,26 @@ namespace Esska.AV3Obfuscator.Editor {
             descriptor = obfus.GetComponent<VRCAvatarDescriptor>();
 
             if (descriptor == null) {
-                EditorGUILayout.HelpBox("No avatar descriptor found", MessageType.Warning, true);
+                EditorGUILayout.HelpBox("VRCAvatarDescriptor component is missing", MessageType.Error, true);
+                return;
+            }
+
+            Animator animator = descriptor.GetComponent<Animator>();
+
+            if (animator == null) {
+                EditorGUILayout.HelpBox("Animator component is missing", MessageType.Error, true);
+                return;
+            }
+
+            if (animator.avatar == null) {
+                EditorGUILayout.HelpBox("Animator has no avatar", MessageType.Error, true);
+                return;
+            }
+
+            Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
+
+            if (animators.Length > 1) {
+                EditorGUILayout.HelpBox("More than one animator found. Obfuscation of additional animators below the hierarchy is not supported.", MessageType.Error, true);
                 return;
             }
 
@@ -62,22 +81,6 @@ namespace Esska.AV3Obfuscator.Editor {
                             if (!allParameters.Contains(parameter.name))
                                 allParameters.Add(parameter.name);
                         }
-                    }
-                }
-
-                Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
-
-                foreach (var item in animators) {
-
-                    if (item.runtimeAnimatorController == null)
-                        continue;
-
-                    AnimatorController controller = (AnimatorController)item.runtimeAnimatorController;
-
-                    foreach (var parameter in controller.parameters) {
-
-                        if (!allParameters.Contains(parameter.name))
-                            allParameters.Add(parameter.name);
                     }
                 }
 
