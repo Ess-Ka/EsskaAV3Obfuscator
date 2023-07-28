@@ -15,6 +15,9 @@ namespace Esska.AV3Obfuscator.Editor {
         public static readonly List<string> VRC_RESERVED_ANIMATOR_PARAMETERS = new List<string>() {
             "AFK",
             "AngularY",
+            "Earmuffs",
+            "EyeHeightAsMeters",
+            "EyeHeightAsPercent",
             "GestureLeft",
             "GestureLeftWeight",
             "GestureRight",
@@ -23,9 +26,13 @@ namespace Esska.AV3Obfuscator.Editor {
             "InStation",
             "IsLocal",
             "MuteSelf",
+            "ScaleFactor",
+            "ScaleFactorInverse",
+            "ScaleModified",
             "Seated",
             "TrackingType",
             "Upright",
+            "VelocityMagnitude",
             "VelocityX",
             "VelocityY",
             "VelocityZ",
@@ -52,27 +59,46 @@ namespace Esska.AV3Obfuscator.Editor {
         ObfuscationConfiguration config;
         string folder;
         List<string> allParameters;
-        List<string> transformNames;
-        List<string> transformPaths;
-        List<string> obfuscatedTransformNames;
-        List<string> obfuscatedTransformPaths;
         Dictionary<AnimationClip, AnimationClip> obfuscatedAnimationClips;
         Dictionary<AudioClip, AudioClip> obfuscatedAudioClips;
         Dictionary<AvatarMask, AvatarMask> obfuscatedAvatarMasks;
         Dictionary<string, string> obfuscatedBlendShapeNames;
         Dictionary<BlendTree, BlendTree> obfuscatedBlendTrees;
+        Dictionary<AnimatorController, AnimatorController> obfuscatedControllers;
         Dictionary<VRCExpressionsMenu, VRCExpressionsMenu> obfuscatedExpressionMenus;
         Dictionary<Material, Material> obfuscatedMaterials;
         Dictionary<Mesh, Mesh> obfuscatedMeshes;
         Dictionary<string, string> obfuscatedParameters;
         Dictionary<Texture, Texture> obfuscatedTextures;
+        Dictionary<string, string> obfuscatedTransformNames;
 
-        public void ClearObfuscatedFolder() {
-            string[] obfuscatedFolder = new string[] { "Assets/" + FOLDER };
+        public void ClearObfuscatedAll() {
+            string[] searchFolders = new string[] { $"Assets/{FOLDER}" };
 
-            foreach (var asset in AssetDatabase.FindAssets("", obfuscatedFolder)) {
+            foreach (var asset in AssetDatabase.FindAssets("", searchFolders)) {
                 string path = AssetDatabase.GUIDToAssetPath(asset);
                 AssetDatabase.DeleteAsset(path);
+            }
+        }
+
+        public void ClearObfuscatedScene() {
+            Scene scene = SceneManager.GetActiveScene();
+            GameObject[] rootGameObjects = scene.GetRootGameObjects();
+
+            foreach (GameObject rootGameObject in rootGameObjects) {
+
+                if (IsObfuscatedGameObject(rootGameObject)) {
+                    string guid = rootGameObject.name.Replace(SUFFIX, "");
+                    string folder = $"Assets/{FOLDER}/{guid}";
+                    string[] searchFolders = new string[] { folder };
+
+                    foreach (var asset in AssetDatabase.FindAssets("", searchFolders)) {
+                        string path = AssetDatabase.GUIDToAssetPath(asset);
+                        AssetDatabase.DeleteAsset(path);
+                    }
+
+                    AssetDatabase.DeleteAsset(folder);
+                }
             }
         }
 
@@ -82,7 +108,7 @@ namespace Esska.AV3Obfuscator.Editor {
 
             foreach (GameObject rootGameObject in rootGameObjects) {
 
-                if (rootGameObject.name.Length == (32 + SUFFIX.Length) && rootGameObject.name.EndsWith(SUFFIX))
+                if (IsObfuscatedGameObject(rootGameObject))
                     DestroyImmediate(rootGameObject);
             }
         }
@@ -122,13 +148,13 @@ namespace Esska.AV3Obfuscator.Editor {
 
             Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
 
-            if (animators.Length > 1) 
+            if (animators.Length > 1)
                 throw new System.Exception("More than one animator found. Obfuscation of additional animators below the hierarchy is not supported.");
 
             Init();
 
             EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Transforms", 0.1f);
-            ObfuscateTransforms(obfuscatedGameObject.transform); // has to run first
+            ObfuscateTransforms(obfuscatedGameObject.transform, obfuscatedGameObject.transform); // has to run first
 
             EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Avatar", 0.2f);
             animator.avatar = ObfuscateAvatar(animator); // has to run after ObfuscateTransforms
@@ -180,49 +206,21 @@ namespace Esska.AV3Obfuscator.Editor {
 
         void Init() {
             allParameters = new List<string>();
-            transformNames = new List<string>();
-            transformPaths = new List<string>();
-            obfuscatedTransformNames = new List<string>();
-            obfuscatedTransformPaths = new List<string>();
             obfuscatedAnimationClips = new Dictionary<AnimationClip, AnimationClip>();
             obfuscatedAudioClips = new Dictionary<AudioClip, AudioClip>();
             obfuscatedAvatarMasks = new Dictionary<AvatarMask, AvatarMask>();
             obfuscatedBlendShapeNames = new Dictionary<string, string>();
             obfuscatedBlendTrees = new Dictionary<BlendTree, BlendTree>();
+            obfuscatedControllers = new Dictionary<AnimatorController, AnimatorController>();
             obfuscatedExpressionMenus = new Dictionary<VRCExpressionsMenu, VRCExpressionsMenu>();
             obfuscatedMaterials = new Dictionary<Material, Material>();
             obfuscatedMeshes = new Dictionary<Mesh, Mesh>();
             obfuscatedParameters = new Dictionary<string, string>();
             obfuscatedTextures = new Dictionary<Texture, Texture>();
+            obfuscatedTransformNames = new Dictionary<string, string>();
         }
 
-        string GetObfuscatedPath<T>() {
-            string path = folder + "/" + GUID.Generate();
-
-            if (typeof(T) == typeof(AnimatorController))
-                path += ".controller";
-            else if (typeof(T) == typeof(AnimationClip))
-                path += ".anim";
-            else if (typeof(T) == typeof(AudioClip))
-                path += "";
-            else if (typeof(T) == typeof(AvatarMask))
-                path += ".mask";
-            else if (typeof(T) == typeof(Material))
-                path += ".mat";
-            else if (typeof(T) == typeof(Texture))
-                path += "";
-            else
-                path += ".asset";
-
-            return path;
-        }
-
-        void ObfuscateTransforms(Transform rootTransform) {
-            CollectTransforms(rootTransform, rootTransform);
-            CollectObfuscatedTransforms(rootTransform, rootTransform);
-        }
-
-        void CollectTransforms(Transform rootTransform, Transform transform) {
+        void ObfuscateTransforms(Transform rootTransform, Transform transform) {
 
             for (int i = 0; i < transform.childCount; i++) {
                 Transform child = transform.GetChild(i);
@@ -230,28 +228,39 @@ namespace Esska.AV3Obfuscator.Editor {
                 if (config.preserveMMD && child.parent == rootTransform && TRANSFORM_NAMES_MMD.Contains(child.name))
                     continue;
 
-                transformNames.Add(child.name);
-                transformPaths.Add(AnimationUtility.CalculateTransformPath(child, rootTransform));
-                CollectTransforms(rootTransform, child);
+                child.name = ObfuscateTransformName(child.name);
+                ObfuscateTransforms(rootTransform, child);
             }
         }
 
-        void CollectObfuscatedTransforms(Transform rootTransform, Transform transform) {
+        string ObfuscateTransformName(string name) {
 
-            for (int i = 0; i < transform.childCount; i++) {
-                Transform child = transform.GetChild(i);
+            if (string.IsNullOrEmpty(name))
+                return "";
 
-                if (config.preserveMMD && child.parent == rootTransform && TRANSFORM_NAMES_MMD.Contains(child.name))
-                    continue;
-
-                child.name = GUID.Generate().ToString();
-                obfuscatedTransformNames.Add(child.name);
-                obfuscatedTransformPaths.Add(AnimationUtility.CalculateTransformPath(child, rootTransform));
-                CollectObfuscatedTransforms(rootTransform, child);
+            if (obfuscatedTransformNames.ContainsKey(name))
+                return obfuscatedTransformNames[name];
+            else {
+                string obfuscatedName = GUID.Generate().ToString();
+                obfuscatedTransformNames.Add(name, obfuscatedName);
+                return obfuscatedName;
             }
+        }
+
+        string ObfuscateTransformPath(string path) {
+            string[] names = path.Split(new string[] { "/" }, System.StringSplitOptions.None);
+
+            for (int i = 0; i < names.Length; i++) {
+                names[i] = ObfuscateTransformName(names[i]);
+            }
+
+            return string.Join("/", names);
         }
 
         Avatar ObfuscateAvatar(Animator animator) {
+
+            if (animator.avatar == null)
+                return null;
 
             if (animator.avatar.isValid) {
                 Avatar obfuscatedAvatar = null;
@@ -261,43 +270,22 @@ namespace Esska.AV3Obfuscator.Editor {
                     List<HumanBone> humanBones = new List<HumanBone>();
 
                     for (int i = 0; i < animator.avatar.humanDescription.skeleton.Length; i++) {
-                        int index = transformNames.IndexOf(animator.avatar.humanDescription.skeleton[i].name);
 
-                        if (index >= 0) {
-
-                            skeletonBones.Add(new SkeletonBone() {
-                                name = obfuscatedTransformNames[index],
-                                position = animator.avatar.humanDescription.skeleton[i].position,
-                                rotation = animator.avatar.humanDescription.skeleton[i].rotation,
-                                scale = animator.avatar.humanDescription.skeleton[i].scale
-                            });
-
-                        }
-                        else {
-
-                            // Root transform
-                            skeletonBones.Add(new SkeletonBone() {
-                                name = animator.name,
-                                position = animator.avatar.humanDescription.skeleton[i].position,
-                                rotation = animator.avatar.humanDescription.skeleton[i].rotation,
-                                scale = animator.avatar.humanDescription.skeleton[i].scale
-                            });
-                        }
+                        skeletonBones.Add(new SkeletonBone() {
+                            name = i == 0 ? animator.name : ObfuscateTransformName(animator.avatar.humanDescription.skeleton[i].name),
+                            position = animator.avatar.humanDescription.skeleton[i].position,
+                            rotation = animator.avatar.humanDescription.skeleton[i].rotation,
+                            scale = animator.avatar.humanDescription.skeleton[i].scale
+                        });
                     }
 
                     for (int i = 0; i < animator.avatar.humanDescription.human.Length; i++) {
-                        int index = transformNames.IndexOf(animator.avatar.humanDescription.human[i].boneName);
 
-                        if (index >= 0) {
-
-                            humanBones.Add(new HumanBone() {
-                                boneName = obfuscatedTransformNames[index],
-                                humanName = animator.avatar.humanDescription.human[i].humanName,
-                                limit = animator.avatar.humanDescription.human[i].limit
-                            });
-                        }
-                        else
-                            throw new System.Exception($"BoneName {animator.avatar.humanDescription.human[i].boneName} not found");
+                        humanBones.Add(new HumanBone() {
+                            boneName = ObfuscateTransformName(animator.avatar.humanDescription.human[i].boneName),
+                            humanName = animator.avatar.humanDescription.human[i].humanName,
+                            limit = animator.avatar.humanDescription.human[i].limit
+                        });
                     }
 
                     HumanDescription description = new HumanDescription() {
@@ -553,8 +541,6 @@ namespace Esska.AV3Obfuscator.Editor {
                 }
             }
 
-            Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
-
             if (animator.runtimeAnimatorController != null && !runtimeAnimatorValid)
                 Debug.LogError("Controller in Animator component cannot be obfuscated. You should set an controller, which is part of your playable layers (e.g. FX controller).", animator);
         }
@@ -562,8 +548,13 @@ namespace Esska.AV3Obfuscator.Editor {
         AnimatorController ObfuscateController(AnimatorController controller) {
             string newPath = GetObfuscatedPath<AnimatorController>();
 
-            if (AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(controller), newPath)) {
+            if (obfuscatedControllers.ContainsKey(controller)) {
+                return obfuscatedControllers[controller];
+            }
+            else if (AssetDatabase.CopyAsset(AssetDatabase.GetAssetPath(controller), newPath)) {
                 AnimatorController obfuscatedController = AssetDatabase.LoadAssetAtPath<AnimatorController>(newPath);
+
+                obfuscatedControllers.Add(controller, obfuscatedController);
 
                 // Parameters
                 List<AnimatorControllerParameter> parameters = new List<AnimatorControllerParameter>(obfuscatedController.parameters);
@@ -671,15 +662,7 @@ namespace Esska.AV3Obfuscator.Editor {
                     if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(transformPath))
                         continue;
 
-                    int index = transformPaths.IndexOf(transformPath);
-
-                    if (index >= 0) {
-                        obfuscatedAvatarMask.SetTransformPath(i, obfuscatedTransformPaths[index]);
-                    }
-                    else {
-                        Debug.LogError($"Path '{transformPath}' in AvatarMask '{avatarMask.name}' doesn't exist in the Transform hierarchy. You should update the Transforms in the AvatarMask. The path will be obfuscated independently of this.", avatarMask);
-                        obfuscatedAvatarMask.SetTransformPath(i, GUID.Generate().ToString());
-                    }
+                    obfuscatedAvatarMask.SetTransformPath(i, ObfuscateTransformPath(transformPath));
                 }
 
                 return obfuscatedAvatarMask;
@@ -788,27 +771,20 @@ namespace Esska.AV3Obfuscator.Editor {
                 for (int i = 0; i < bindings.Length; i++) {
 
                     if (!string.IsNullOrEmpty(bindings[i].path)) {
-                        int index = transformPaths.IndexOf(bindings[i].path);
 
-                        if (index >= 0) {
-                            AnimationCurve curve = AnimationUtility.GetEditorCurve(obfuscatedClip, bindings[i]);
-                            AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
-                            bindings[i].path = obfuscatedTransformPaths[index];
-
-                            if (config.obfuscateMeshes && config.obfuscateBlendShapes && bindings[i].propertyName.StartsWith("blendShape.")) {
-                                string blendShapeName = bindings[i].propertyName.Replace("blendShape.", "");
-                                bindings[i].propertyName = "blendShape." + ObfuscateBlendShape(blendShapeName);
-                            }
-
-                            AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], curve);
-                        }
-                        else if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path)) {
+                        if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path))
                             continue;
+
+                        AnimationCurve curve = AnimationUtility.GetEditorCurve(obfuscatedClip, bindings[i]);
+                        AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
+                        bindings[i].path = ObfuscateTransformPath(bindings[i].path);
+
+                        if (config.obfuscateMeshes && config.obfuscateBlendShapes && bindings[i].propertyName.StartsWith("blendShape.")) {
+                            string blendShapeName = bindings[i].propertyName.Replace("blendShape.", "");
+                            bindings[i].propertyName = "blendShape." + ObfuscateBlendShape(blendShapeName);
                         }
-                        else {
-                            AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], null);
-                            Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);
-                        }
+
+                        AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], curve);
                     }
                     else if (!string.IsNullOrEmpty(bindings[i].propertyName) && obfuscatedParameters.ContainsKey(bindings[i].propertyName)) {
                         AnimationCurve curve = AnimationUtility.GetEditorCurve(obfuscatedClip, bindings[i]);
@@ -827,31 +803,23 @@ namespace Esska.AV3Obfuscator.Editor {
 
                     if (!string.IsNullOrEmpty(bindings[i].path)) {
 
-                        int index = transformPaths.IndexOf(bindings[i].path);
-
-                        if (index >= 0) {
-                            ObjectReferenceKeyframe[] references = AnimationUtility.GetObjectReferenceCurve(obfuscatedClip, bindings[i]);
-                            AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], null);
-                            bindings[i].path = obfuscatedTransformPaths[index];
-
-                            if (config.obfuscateMaterials && bindings[i].isPPtrCurve) {
-
-                                for (int r = 0; r < references.Length; r++) {
-
-                                    if (references[r].value is Material)
-                                        references[r].value = ObfuscateMaterial((Material)references[r].value);
-                                }
-                            }
-
-                            AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], references);
-                        }
-                        else if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path)) {
+                        if (config.preserveMMD && TRANSFORM_NAMES_MMD.Contains(bindings[i].path))
                             continue;
+
+                        ObjectReferenceKeyframe[] references = AnimationUtility.GetObjectReferenceCurve(obfuscatedClip, bindings[i]);
+                        AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], null);
+                        bindings[i].path = ObfuscateTransformPath(bindings[i].path);
+
+                        if (config.obfuscateMaterials && bindings[i].isPPtrCurve) {
+
+                            for (int r = 0; r < references.Length; r++) {
+
+                                if (references[r].value is Material)
+                                    references[r].value = ObfuscateMaterial((Material)references[r].value);
+                            }
                         }
-                        else {
-                            AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], null);
-                            Debug.LogError($"Path '{bindings[i].path}' in AnimationClip '{clip.name}' cannot be obfuscated. Path was removed.", clip);
-                        }
+
+                        AnimationUtility.SetObjectReferenceCurve(obfuscatedClip, bindings[i], references);
                     }
                     else {
                         continue;
@@ -1131,6 +1099,31 @@ namespace Esska.AV3Obfuscator.Editor {
             }
 
             throw new System.Exception($"Obfuscation of AudioClip '{ausdioClip.name}' failed");
+        }
+
+        bool IsObfuscatedGameObject(GameObject gameObject) {
+            return (gameObject.name.Length == (32 + SUFFIX.Length) && gameObject.name.EndsWith(SUFFIX));
+        }
+
+        string GetObfuscatedPath<T>() {
+            string path = folder + "/" + GUID.Generate();
+
+            if (typeof(T) == typeof(AnimatorController))
+                path += ".controller";
+            else if (typeof(T) == typeof(AnimationClip))
+                path += ".anim";
+            else if (typeof(T) == typeof(AudioClip))
+                path += "";
+            else if (typeof(T) == typeof(AvatarMask))
+                path += ".mask";
+            else if (typeof(T) == typeof(Material))
+                path += ".mat";
+            else if (typeof(T) == typeof(Texture))
+                path += "";
+            else
+                path += ".asset";
+
+            return path;
         }
 
         string GetPhysBonesParameter(string parameter) {

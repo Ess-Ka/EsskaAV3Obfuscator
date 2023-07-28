@@ -258,10 +258,16 @@ namespace Esska.AV3Obfuscator.Editor {
                     obfuscator.Obfuscate(obfus.gameObject, obfus.config);
                 }
 
-                if (GUILayout.Button("Clear Obfuscated Data", GUILayout.Width(EditorGUIUtility.currentViewWidth * 0.45f))) {
+                if (GUILayout.Button("Clear Obfuscated Scene Data")) {
                     Obfuscator obfuscator = CreateInstance<Obfuscator>();
+                    obfuscator.ClearObfuscatedScene();
                     obfuscator.ClearObfuscateGameObjects();
-                    obfuscator.ClearObfuscatedFolder();
+                }
+
+                if (GUILayout.Button("Clear All Obfuscated Data")) {
+                    Obfuscator obfuscator = CreateInstance<Obfuscator>();
+                    obfuscator.ClearObfuscatedAll();
+                    obfuscator.ClearObfuscateGameObjects();
                 }
             }
             GUILayout.EndHorizontal();
