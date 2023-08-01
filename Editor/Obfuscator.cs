@@ -301,7 +301,25 @@ namespace Esska.AV3Obfuscator.Editor {
                         upperLegTwist = animator.avatar.humanDescription.upperLegTwist
                     };
 
+                    Transform[] children = animator.transform.GetComponentsInChildren<Transform>(true);
+
+                    for (int i = 0; i < children.Length; i++) {
+
+                        if (children[i] == animator.transform.GetChild(0) || children[i].parent != animator.transform)
+                            continue;
+
+                        children[i].parent = null;
+                    }
+
                     obfuscatedAvatar = AvatarBuilder.BuildHumanAvatar(animator.gameObject, description);
+
+                    for (int i = 0; i < children.Length; i++) {
+
+                        if (children[i].parent != null)
+                            continue;
+
+                        children[i].parent = animator.transform;
+                    }
                 }
                 else {
                     obfuscatedAvatar = AvatarBuilder.BuildGenericAvatar(animator.gameObject, "");
