@@ -151,13 +151,18 @@ namespace Esska.AV3Obfuscator.Editor {
             if (animators.Length > 1)
                 throw new System.Exception("More than one animator found. Obfuscation of additional animators below the hierarchy is not supported.");
 
+            Transform armatureTransform = GetArmatureTransform(animator);
+
+            if (armatureTransform == null)
+                throw new System.Exception("Armature not found.");
+
             Init();
 
             EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Transforms", 0.1f);
             ObfuscateTransforms(obfuscatedGameObject.transform, obfuscatedGameObject.transform); // has to run first
 
             EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Avatar", 0.2f);
-            animator.avatar = ObfuscateAvatar(animator); // has to run after ObfuscateTransforms
+            animator.avatar = ObfuscateAvatar(animator, armatureTransform); // has to run after ObfuscateTransforms
 
             if (config.obfuscateMeshes) {
                 EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Meshes", 0.3f);
@@ -257,7 +262,7 @@ namespace Esska.AV3Obfuscator.Editor {
             return string.Join("/", names);
         }
 
-        Avatar ObfuscateAvatar(Animator animator) {
+        Avatar ObfuscateAvatar(Animator animator, Transform armatureTransform) {
 
             if (animator.avatar == null)
                 return null;
@@ -305,20 +310,16 @@ namespace Esska.AV3Obfuscator.Editor {
 
                     for (int i = 0; i < children.Length; i++) {
 
-                        if (children[i] == animator.transform.GetChild(0) || children[i].parent != animator.transform)
-                            continue;
-
-                        children[i].parent = null;
+                        if (children[i].parent == animator.transform && children[i] != armatureTransform)
+                            children[i].parent = null;
                     }
 
                     obfuscatedAvatar = AvatarBuilder.BuildHumanAvatar(animator.gameObject, description);
 
                     for (int i = 0; i < children.Length; i++) {
 
-                        if (children[i].parent != null)
-                            continue;
-
-                        children[i].parent = animator.transform;
+                        if (children[i].parent == null)
+                            children[i].parent = animator.transform;
                     }
                 }
                 else {
@@ -1164,6 +1165,21 @@ namespace Esska.AV3Obfuscator.Editor {
             }
 
             return "";
+        }
+
+        Transform GetArmatureTransform(Animator animator) {
+            Transform[] children = animator.transform.GetComponentsInChildren<Transform>(true);
+
+            for (int i = 0; i < children.Length; i++) {
+
+                if (children[i].parent != animator.transform)
+                    continue;
+
+                if (children[i].name.StartsWith("Armature") && children[i].childCount > 0 && children[i].GetChild(0).name == "Hips")
+                    return children[i];
+            }
+
+            return null;
         }
     }
 }
