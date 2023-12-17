@@ -25,6 +25,7 @@ namespace Esska.AV3Obfuscator.Editor {
             "Grounded",
             "InStation",
             "IsLocal",
+            "IsOnFriendsList",
             "MuteSelf",
             "ScaleFactor",
             "ScaleFactorInverse",
@@ -393,32 +394,10 @@ namespace Esska.AV3Obfuscator.Editor {
                 return obfuscatedMeshes[mesh];
             }
             else {
-                Mesh obfuscatedMesh = new Mesh {
-                    subMeshCount = mesh.subMeshCount,
-                    vertices = mesh.vertices,
-                    colors = mesh.colors,
-                    normals = mesh.normals,
-                    tangents = mesh.tangents,
-                    bindposes = mesh.bindposes,
-                    boneWeights = mesh.boneWeights,
-                    uv = mesh.uv,
-                    uv2 = mesh.uv2,
-                    uv3 = mesh.uv3,
-                    uv4 = mesh.uv4,
-                    uv5 = mesh.uv5,
-                    uv6 = mesh.uv6,
-                    uv7 = mesh.uv7,
-                    uv8 = mesh.uv8
-                };
+                Mesh obfuscatedMesh = Instantiate(mesh);
+                obfuscatedMesh.ClearBlendShapes();
 
-                // Transfer sub meshes
-                for (var meshIndex = 0; meshIndex < mesh.subMeshCount; meshIndex++) {
-                    int[] triangles = mesh.GetTriangles(meshIndex);
-
-                    obfuscatedMesh.SetTriangles(triangles, meshIndex);
-                }
-
-                // Transfer blend shapes
+                // Transfer and obfuscate blend shapes
                 for (int shapeIndex = 0; shapeIndex < mesh.blendShapeCount; shapeIndex++) {
 
                     for (var frameIndex = 0; frameIndex < mesh.GetBlendShapeFrameCount(shapeIndex); frameIndex++) {
