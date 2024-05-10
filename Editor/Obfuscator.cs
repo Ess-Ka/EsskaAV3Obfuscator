@@ -746,6 +746,16 @@ namespace Esska.AV3Obfuscator.Editor {
                         parameter.source = obfuscatedParameters[parameter.source];
                 }
             }
+            else if (behaviour is VRCAnimatorPlayAudio) {
+                VRCAnimatorPlayAudio animatorPlayAudio = (VRCAnimatorPlayAudio)behaviour;
+
+                if (animatorPlayAudio.ParameterName != null && obfuscatedParameters.ContainsKey(animatorPlayAudio.ParameterName))
+                    animatorPlayAudio.ParameterName = obfuscatedParameters[animatorPlayAudio.ParameterName];
+
+                for (int i = 0; i < animatorPlayAudio.Clips.Length; i++) {
+                    animatorPlayAudio.Clips[i] = ObfuscateAudioClip(animatorPlayAudio.Clips[i]);
+                }
+            }
         }
 
         AnimationClip ObfuscateAnimationClip(AnimationClip clip) {
@@ -869,11 +879,19 @@ namespace Esska.AV3Obfuscator.Editor {
                     if (childMotions[i].motion is AnimationClip) {
                         ChildMotion childMotion = childMotions[i];
                         childMotion.motion = ObfuscateAnimationClip((AnimationClip)childMotion.motion);
+
+                        if (obfuscatedParameters.ContainsKey(childMotion.directBlendParameter))
+                            childMotion.directBlendParameter = obfuscatedParameters[childMotion.directBlendParameter];
+
                         childMotions[i] = childMotion;
                     }
                     else if (obfuscatedBlendTree.children[i].motion is BlendTree) {
                         ChildMotion childMotion = childMotions[i];
                         childMotion.motion = ObfuscateBlendTree((BlendTree)obfuscatedBlendTree.children[i].motion);
+
+                        if (obfuscatedParameters.ContainsKey(childMotion.directBlendParameter))
+                            childMotion.directBlendParameter = obfuscatedParameters[childMotion.directBlendParameter];
+
                         childMotions[i] = childMotion;
                     }
                 }
