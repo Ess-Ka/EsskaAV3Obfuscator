@@ -5,11 +5,13 @@
 
 This software allows you to obfuscate your VRChat avatar.
 
-![grafik](https://github.com/Ess-Ka/EsskaAV3Obfuscator/assets/84975839/5350386b-f83f-4b95-8d73-f2a9ac1323cd)
+![grafik](https://github.com/Ess-Ka/EsskaAV3Obfuscator/assets/84975839/6075fb22-9308-4852-b7a0-f008881a41a1)
 
 ## What is obfuscation?
 
 Obfuscation means, remove all human readable content and replace it by something random. In case of AV3Obfuscator, all strings or filenames will be obfuscated. Someone which steals your avatar, has still access to your assets (e.g. meshes, materials and textures). But if your avatar is obfuscated, it will be more complicated to work with your data. Someone which want see the content of your game object, sees only garbage.
+
+![grafik](https://user-images.githubusercontent.com/84975839/172045078-a90af8e5-17b0-410b-838c-28424dff3e9a.png)
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045220-3480adbb-e58d-4164-9b5a-c7bb0c97106b.png)
 
@@ -20,14 +22,13 @@ AV3Obfuscator does not encrypt any of your data. But you can combinate avatar en
 Following data will be obfuscated by default:
 
 - Entire transform hierarchy
-- Controllers
+- Controllers, layers, state machines, states, blend trees
 - Avatar (of animator component)
 - Avatar masks
 - Animation clips
 
 Optional, following data can be obfuscated:
 
-- Layers, state machines, states, blend trees
 - VRC expression parameters + menus
 - Parameters (except of reserved VRC parameters)
 - Meshes
@@ -56,12 +57,6 @@ Add the AV3Obfuscator component to your root avatar game object. Choose the opti
 ### Preserve MMD
 
 If you enable this checkbox, the name of the "Body" transform and all Blend Shapes on it will not be obfuscated. This ensures that MMD still works.
-
-### Layers, State Machines, States, Blend Trees
-
-![grafik](https://user-images.githubusercontent.com/84975839/172045078-a90af8e5-17b0-410b-838c-28424dff3e9a.png)
-
-Obfuscates layers, state machines, states and blend trees of any used controller.
 
 ### VRC Expressions + Menus
 
@@ -115,12 +110,18 @@ Obfuscates audio clips of any audio source.
 
 ### Obfuscate
 
-![grafik](https://user-images.githubusercontent.com/84975839/172045336-bde72aed-80bb-4bfb-b7a5-6f18973b6115.png)
+![grafik](https://github.com/Ess-Ka/EsskaAV3Obfuscator/assets/84975839/8786e8a4-51de-45f7-b518-343f0261d45a)
 
 This starts the obfuscation. Your avatar game object will be copied and all obfuscated data will be stored in the Assets/Obfuscated folder. Depending on amount of files, this process may take some time. Errors will be shown in console window.
 
+### Clear Obfuscated Scene Data
+
+![grafik](https://github.com/Ess-Ka/EsskaAV3Obfuscator/assets/84975839/a907a509-71e7-45ca-93dc-04793501b360)
+
+Removes the obfuscated game object in the scene and its related obfuscated data in the Assets/Obfuscated folder.
+
 ### Clear Obfuscated Data
 
-![grafik](https://user-images.githubusercontent.com/84975839/172045352-7d1844c1-ee24-4746-9e83-36697b1a2827.png)
+![grafik](https://github.com/Ess-Ka/EsskaAV3Obfuscator/assets/84975839/1e3a359f-e28b-426d-b169-f0e45dfe820d)
 
-Removes the obfuscated game object and the obfuscated data in the Assets/Obfuscated folder.
+Removes the obfuscated game object in the scene and all obfuscated data in the Assets/Obfuscated folder.
