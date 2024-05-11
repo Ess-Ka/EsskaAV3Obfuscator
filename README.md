@@ -68,7 +68,7 @@ Obfuscates VRC expression parameters, menu and submenus.
 
 ![grafik](https://user-images.githubusercontent.com/84975839/172045110-0bf33ec7-d2f8-478a-b24b-a665da12c296.png)
 
-Obfuscates the selected parameters used by any controller, state, state behaviour, blend tree, transition or used by any VRC expression menu. Reserved VRC parameters cannot be obfuscated.
+Obfuscates the selected parameters used by any controller, state, state behaviour, blend tree, transition, phys bone component or used by any VRC expression menu. Reserved VRC parameters cannot be obfuscated.
 
 #### GTAvaCrypt Parameters ####
 
