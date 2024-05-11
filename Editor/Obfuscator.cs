@@ -15,6 +15,7 @@ namespace Esska.AV3Obfuscator.Editor {
         public static readonly List<string> VRC_RESERVED_ANIMATOR_PARAMETERS = new List<string>() {
             "AFK",
             "AngularY",
+            "AvatarVersion",
             "Earmuffs",
             "EyeHeightAsMeters",
             "EyeHeightAsPercent",
@@ -558,62 +559,7 @@ namespace Esska.AV3Obfuscator.Editor {
                 List<AnimatorControllerParameter> parameters = new List<AnimatorControllerParameter>(obfuscatedController.parameters);
 
                 foreach (var parameter in parameters) {
-
-                    if (!allParameters.Contains(parameter.name))
-                        allParameters.Add(parameter.name);
-
-                    if (config.obfuscateExpressionParameters && config.obfuscateParameters) {
-
-                        if (VRC_RESERVED_ANIMATOR_PARAMETERS.Contains(parameter.name))
-                            continue;
-
-                        if (!config.obfuscatedParameters.Contains(parameter.name))
-                            continue;
-
-                        if (obfuscatedParameters.ContainsKey(parameter.name)) {
-                            parameter.name = obfuscatedParameters[parameter.name];
-                        }
-                        else {
-                            string newName = GUID.Generate().ToString();
-
-                            // Use same GUID for same PhysBones parameter and do not obfuscate suffix
-
-                            // Parameter in PhysBones component
-                            // Nose            ->  {GUID}
-
-                            // Parameter in controller
-                            // Nose_IsGrabbed  ->  {GUID}_IsGrabbed
-                            // Nose_Angle      ->  {GUID}_Angle
-                            // Nose_Stretch    ->  {GUID}_Stretch
-
-                            string physBonesParameterSuffix = GetPhysBonesParameterSuffix(parameter.name);
-
-                            if (!string.IsNullOrEmpty(physBonesParameterSuffix)) {
-                                string physBonesParameter = GetPhysBonesParameter(parameter.name);
-                                bool foundSamePhysBonesParameter = false;
-
-                                foreach (var suffix in VRC_PHYS_BONES_SUFFIXES) {
-
-                                    if (suffix == physBonesParameterSuffix)
-                                        continue;
-
-                                    string samePhysBonesParameterName = physBonesParameter + suffix;
-
-                                    if (obfuscatedParameters.ContainsKey(samePhysBonesParameterName)) {
-                                        newName = GetPhysBonesParameter(obfuscatedParameters[samePhysBonesParameterName]) + physBonesParameterSuffix;
-                                        foundSamePhysBonesParameter = true;
-                                        break;
-                                    }
-                                }
-
-                                if (!foundSamePhysBonesParameter)
-                                    newName += physBonesParameterSuffix;
-                            }
-
-                            obfuscatedParameters.Add(parameter.name, newName);
-                            parameter.name = newName;
-                        }
-                    }
+                    parameter.name = ObfuscateParameter(parameter.name);
                 }
 
                 obfuscatedController.parameters = parameters.ToArray();
@@ -622,9 +568,7 @@ namespace Esska.AV3Obfuscator.Editor {
                 List<AnimatorControllerLayer> layers = new List<AnimatorControllerLayer>(obfuscatedController.layers);
 
                 foreach (var layer in layers) {
-
-                    if (config.obfuscateLayers)
-                        layer.name = GUID.Generate().ToString();
+                    layer.name = GUID.Generate().ToString();
 
                     if (layer.avatarMask != null)
                         layer.avatarMask = ObfuscateAvatarMask(layer.avatarMask);
@@ -638,6 +582,67 @@ namespace Esska.AV3Obfuscator.Editor {
             }
 
             throw new System.Exception($"Obfuscation of Controller '{controller.name}' failed");
+        }
+
+        string ObfuscateParameter(string parameter) {
+
+            if (string.IsNullOrEmpty(parameter))
+                return parameter;
+
+            if (!allParameters.Contains(parameter))
+                allParameters.Add(parameter);
+
+            if (!config.obfuscateExpressionParameters || !config.obfuscateParameters)
+                return parameter;
+
+            if (VRC_RESERVED_ANIMATOR_PARAMETERS.Contains(parameter))
+                return parameter;
+
+            if (!config.obfuscatedParameters.Contains(parameter))
+                return parameter;
+
+            if (obfuscatedParameters.ContainsKey(parameter))
+                return obfuscatedParameters[parameter];
+
+            string obfuscatedParameter = GUID.Generate().ToString();
+
+            // Use same GUID for same PhysBones parameter and do not obfuscate suffix
+
+            // Parameter in PhysBones component
+            // Nose            ->  {GUID}
+
+            // Parameter in controller
+            // Nose_IsGrabbed  ->  {GUID}_IsGrabbed
+            // Nose_Angle      ->  {GUID}_Angle
+            // Nose_Stretch    ->  {GUID}_Stretch
+
+            string physBonesParameterSuffix = GetPhysBonesParameterSuffix(parameter);
+
+            if (!string.IsNullOrEmpty(physBonesParameterSuffix)) {
+                string physBonesParameter = GetPhysBonesParameter(parameter);
+                bool foundSamePhysBonesParameter = false;
+
+                foreach (var suffix in VRC_PHYS_BONES_SUFFIXES) {
+
+                    if (suffix == physBonesParameterSuffix)
+                        continue;
+
+                    string samePhysBonesParameterName = physBonesParameter + suffix;
+
+                    if (obfuscatedParameters.ContainsKey(samePhysBonesParameterName)) {
+                        obfuscatedParameter = GetPhysBonesParameter(obfuscatedParameters[samePhysBonesParameterName]) + physBonesParameterSuffix;
+                        foundSamePhysBonesParameter = true;
+                        break;
+                    }
+                }
+
+                if (!foundSamePhysBonesParameter)
+                    obfuscatedParameter += physBonesParameterSuffix;
+            }
+
+            obfuscatedParameters.Add(parameter, obfuscatedParameter);
+
+            return obfuscatedParameter;
         }
 
         AvatarMask ObfuscateAvatarMask(AvatarMask avatarMask) {
@@ -670,23 +675,18 @@ namespace Esska.AV3Obfuscator.Editor {
         }
 
         void ObfuscateStateMachine(AnimatorStateMachine stateMachine) {
+            stateMachine.name = GUID.Generate().ToString();
 
-            if (config.obfuscateLayers)
-                stateMachine.name = GUID.Generate().ToString();
+            foreach (var transition in stateMachine.entryTransitions) {
+                ObfuscateTransitionConditionParameters(transition);
+            }
 
-            if (config.obfuscateExpressionParameters && config.obfuscateParameters) {
+            foreach (var transition in stateMachine.anyStateTransitions) {
+                ObfuscateTransitionConditionParameters(transition);
+            }
 
-                foreach (var transition in stateMachine.entryTransitions) {
-                    UpdateTransitionConditionParameters(transition);
-                }
-
-                foreach (var transition in stateMachine.anyStateTransitions) {
-                    UpdateTransitionConditionParameters(transition);
-                }
-
-                foreach (var behaviour in stateMachine.behaviours) {
-                    ObfuscateBehaviour(behaviour);
-                }
+            foreach (var behaviour in stateMachine.behaviours) {
+                ObfuscateBehaviour(behaviour);
             }
 
             foreach (var state in stateMachine.states) {
@@ -699,31 +699,19 @@ namespace Esska.AV3Obfuscator.Editor {
         }
 
         void ObfuscateState(AnimatorState state) {
+            state.name = GUID.Generate().ToString();
 
-            if (config.obfuscateLayers)
-                state.name = GUID.Generate().ToString();
+            state.cycleOffsetParameter = ObfuscateParameter(state.cycleOffsetParameter);
+            state.mirrorParameter = ObfuscateParameter(state.mirrorParameter);
+            state.speedParameter = ObfuscateParameter(state.speedParameter);
+            state.timeParameter = ObfuscateParameter(state.timeParameter);
 
-            if (config.obfuscateExpressionParameters && config.obfuscateParameters) {
+            foreach (var transition in state.transitions) {
+                ObfuscateTransitionConditionParameters(transition);
+            }
 
-                if (obfuscatedParameters.ContainsKey(state.cycleOffsetParameter))
-                    state.cycleOffsetParameter = obfuscatedParameters[state.cycleOffsetParameter];
-
-                if (obfuscatedParameters.ContainsKey(state.mirrorParameter))
-                    state.mirrorParameter = obfuscatedParameters[state.mirrorParameter];
-
-                if (obfuscatedParameters.ContainsKey(state.speedParameter))
-                    state.speedParameter = obfuscatedParameters[state.speedParameter];
-
-                if (obfuscatedParameters.ContainsKey(state.timeParameter))
-                    state.timeParameter = obfuscatedParameters[state.timeParameter];
-
-                foreach (var transition in state.transitions) {
-                    UpdateTransitionConditionParameters(transition);
-                }
-
-                foreach (var behaviour in state.behaviours) {
-                    ObfuscateBehaviour(behaviour);
-                }
+            foreach (var behaviour in state.behaviours) {
+                ObfuscateBehaviour(behaviour);
             }
 
             if (state.motion is AnimationClip)
@@ -738,22 +726,23 @@ namespace Esska.AV3Obfuscator.Editor {
                 VRCAvatarParameterDriver parameterDriver = (VRCAvatarParameterDriver)behaviour;
 
                 foreach (var parameter in parameterDriver.parameters) {
-
-                    if (parameter.name != null && obfuscatedParameters.ContainsKey(parameter.name))
-                        parameter.name = obfuscatedParameters[parameter.name];
-
-                    if (parameter.source != null && obfuscatedParameters.ContainsKey(parameter.source))
-                        parameter.source = obfuscatedParameters[parameter.source];
+                    parameter.name = ObfuscateParameter(parameter.name);
+                    parameter.source = ObfuscateParameter(parameter.source);
                 }
             }
             else if (behaviour is VRCAnimatorPlayAudio) {
                 VRCAnimatorPlayAudio animatorPlayAudio = (VRCAnimatorPlayAudio)behaviour;
 
-                if (animatorPlayAudio.ParameterName != null && obfuscatedParameters.ContainsKey(animatorPlayAudio.ParameterName))
-                    animatorPlayAudio.ParameterName = obfuscatedParameters[animatorPlayAudio.ParameterName];
+                if (!string.IsNullOrEmpty(animatorPlayAudio.SourcePath))
+                    animatorPlayAudio.SourcePath = ObfuscateTransformPath(animatorPlayAudio.SourcePath);
 
-                for (int i = 0; i < animatorPlayAudio.Clips.Length; i++) {
-                    animatorPlayAudio.Clips[i] = ObfuscateAudioClip(animatorPlayAudio.Clips[i]);
+                animatorPlayAudio.ParameterName = ObfuscateParameter(animatorPlayAudio.ParameterName);
+
+                if (config.obfuscateAudioClips) {
+
+                    for (int i = 0; i < animatorPlayAudio.Clips.Length; i++) {
+                        animatorPlayAudio.Clips[i] = ObfuscateAudioClip(animatorPlayAudio.Clips[i]);
+                    }
                 }
             }
         }
@@ -846,7 +835,9 @@ namespace Esska.AV3Obfuscator.Editor {
                 return obfuscatedBlendTrees[blendTree];
             }
             else {
-                string newPath = GetObfuscatedPath<BlendTree>();
+                string obfuscatedBlendTreeGUID = GUID.Generate().ToString();
+
+                string newPath = GetObfuscatedPath<BlendTree>(obfuscatedBlendTreeGUID);
                 BlendTree obfuscatedBlendTree = blendTree;
 
                 if (AssetDatabase.IsMainAsset(blendTree)) {
@@ -860,17 +851,10 @@ namespace Esska.AV3Obfuscator.Editor {
                     }
                 }
 
-                if (config.obfuscateLayers)
-                    obfuscatedBlendTree.name = GUID.Generate().ToString();
+                obfuscatedBlendTree.name = obfuscatedBlendTreeGUID;
 
-                if (config.obfuscateExpressionParameters && config.obfuscateParameters) {
-
-                    if (obfuscatedParameters.ContainsKey(obfuscatedBlendTree.blendParameter))
-                        blendTree.blendParameter = obfuscatedParameters[blendTree.blendParameter];
-
-                    if (obfuscatedParameters.ContainsKey(obfuscatedBlendTree.blendParameterY))
-                        obfuscatedBlendTree.blendParameterY = obfuscatedParameters[blendTree.blendParameterY];
-                }
+                obfuscatedBlendTree.blendParameter = ObfuscateParameter(obfuscatedBlendTree.blendParameter);
+                obfuscatedBlendTree.blendParameterY = ObfuscateParameter(obfuscatedBlendTree.blendParameterY);
 
                 List<ChildMotion> childMotions = new List<ChildMotion>(obfuscatedBlendTree.children);
 
@@ -879,19 +863,13 @@ namespace Esska.AV3Obfuscator.Editor {
                     if (childMotions[i].motion is AnimationClip) {
                         ChildMotion childMotion = childMotions[i];
                         childMotion.motion = ObfuscateAnimationClip((AnimationClip)childMotion.motion);
-
-                        if (obfuscatedParameters.ContainsKey(childMotion.directBlendParameter))
-                            childMotion.directBlendParameter = obfuscatedParameters[childMotion.directBlendParameter];
-
+                        childMotion.directBlendParameter = ObfuscateParameter(childMotion.directBlendParameter);
                         childMotions[i] = childMotion;
                     }
                     else if (obfuscatedBlendTree.children[i].motion is BlendTree) {
                         ChildMotion childMotion = childMotions[i];
                         childMotion.motion = ObfuscateBlendTree((BlendTree)obfuscatedBlendTree.children[i].motion);
-
-                        if (obfuscatedParameters.ContainsKey(childMotion.directBlendParameter))
-                            childMotion.directBlendParameter = obfuscatedParameters[childMotion.directBlendParameter];
-
+                        childMotion.directBlendParameter = ObfuscateParameter(childMotion.directBlendParameter);
                         childMotions[i] = childMotion;
                     }
                 }
@@ -904,17 +882,13 @@ namespace Esska.AV3Obfuscator.Editor {
             throw new System.Exception($"Obfuscation of BlendTree '{blendTree.name}' failed");
         }
 
-        void UpdateTransitionConditionParameters(AnimatorTransitionBase transition) {
+        void ObfuscateTransitionConditionParameters(AnimatorTransitionBase transition) {
             List<AnimatorCondition> conditions = new List<AnimatorCondition>(transition.conditions);
 
             for (int i = 0; i < conditions.Count; i++) {
-
-                if (obfuscatedParameters.ContainsKey(conditions[i].parameter)) {
-                    AnimatorCondition condition = conditions[i];
-                    condition.parameter = obfuscatedParameters[conditions[i].parameter];
-
-                    conditions[i] = condition;
-                }
+                AnimatorCondition condition = conditions[i];
+                condition.parameter = ObfuscateParameter(condition.parameter);
+                conditions[i] = condition;
             }
 
             transition.conditions = conditions.ToArray();
@@ -938,11 +912,7 @@ namespace Esska.AV3Obfuscator.Editor {
                             if (!allParameters.Contains(expressionParameter.name))
                                 Debug.LogError($"VRC Expression Parameter '{expressionParameter.name}' is not used in any controller. It's recommended to remove it.", descriptor.expressionParameters);
 
-                            if (config.obfuscateParameters) {
-
-                                if (obfuscatedParameters.ContainsKey(expressionParameter.name))
-                                    expressionParameter.name = obfuscatedParameters[expressionParameter.name];
-                            }
+                            expressionParameter.name = ObfuscateParameter(expressionParameter.name);
                         }
                     }
                 }
@@ -963,22 +933,14 @@ namespace Esska.AV3Obfuscator.Editor {
                 obfuscatedExpressionMenus.Add(menu, obfuscatedMenu);
 
                 foreach (var control in obfuscatedMenu.controls) {
+                    control.parameter.name = ObfuscateParameter(control.parameter.name);
 
-                    if (config.obfuscateParameters) {
-
-                        if (control.parameter != null && obfuscatedParameters.ContainsKey(control.parameter.name))
-                            control.parameter.name = obfuscatedParameters[control.parameter.name];
-
-                        foreach (var subParameter in control.subParameters) {
-
-                            if (subParameter != null && obfuscatedParameters.ContainsKey(subParameter.name))
-                                subParameter.name = obfuscatedParameters[subParameter.name];
-                        }
+                    foreach (var subParameter in control.subParameters) {
+                        subParameter.name = ObfuscateParameter(subParameter.name);
                     }
 
                     if (config.obfuscateMaterials && config.obfuscateTextures && control.icon != null)
                         control.icon = (Texture2D)ObfuscateTexture(control.icon);
-
 
                     if (control.subMenu != null) {
 
@@ -1015,12 +977,7 @@ namespace Esska.AV3Obfuscator.Editor {
             }
 
             foreach (var contactReceiver in contactReceivers) {
-
-                if (!string.IsNullOrEmpty(contactReceiver.parameter)) {
-
-                    if (obfuscatedParameters.ContainsKey(contactReceiver.parameter))
-                        contactReceiver.parameter = obfuscatedParameters[contactReceiver.parameter];
-                }
+                contactReceiver.parameter = ObfuscateParameter(contactReceiver.parameter);
             }
         }
 
@@ -1121,8 +1078,12 @@ namespace Esska.AV3Obfuscator.Editor {
             return (gameObject.name.Length == (32 + SUFFIX.Length) && gameObject.name.EndsWith(SUFFIX));
         }
 
-        string GetObfuscatedPath<T>() {
-            string path = folder + "/" + GUID.Generate();
+        string GetObfuscatedPath<T>(string guid = "") {
+
+            if (guid == "")
+                guid = GUID.Generate().ToString();
+
+            string path = $"{folder}/{guid}";
 
             if (typeof(T) == typeof(AnimatorController))
                 path += ".controller";

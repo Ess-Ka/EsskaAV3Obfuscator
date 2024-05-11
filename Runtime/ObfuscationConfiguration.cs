@@ -6,7 +6,6 @@ namespace Esska.AV3Obfuscator {
     [Serializable]
     public class ObfuscationConfiguration {
 
-        public bool obfuscateLayers = true;
         public bool obfuscateExpressionParameters = true;
         public bool obfuscateParameters = true;
         public List<string> obfuscatedParameters = new List<string>();

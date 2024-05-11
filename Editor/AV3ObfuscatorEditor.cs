@@ -101,7 +101,7 @@ namespace Esska.AV3Obfuscator.Editor {
             GUILayout.BeginVertical(GUI.skin.box);
             {
                 EditorGUILayout.LabelField("- Transforms (entire hierarchy)");
-                EditorGUILayout.LabelField("- Controllers");
+                EditorGUILayout.LabelField("- Controllers, Layers, State Machines, States, Blend Trees");
                 EditorGUILayout.LabelField("- Avatar");
                 EditorGUILayout.LabelField("- Avatar Masks");
                 EditorGUILayout.LabelField("- Animation Clips");
@@ -122,12 +122,6 @@ namespace Esska.AV3Obfuscator.Editor {
             obfus.config.showOptionalObfuscation = EditorGUILayout.Foldout(obfus.config.showOptionalObfuscation, "Obfuscate (Optional)", EditorStyles.foldoutHeader);
 
             if (obfus.config.showOptionalObfuscation) {
-
-                GUILayout.BeginVertical(GUI.skin.box);
-                {
-                    obfus.config.obfuscateLayers = EditorGUILayout.ToggleLeft(new GUIContent("Layers, State Machines, States, Blend Trees", "Layers, State Machines, States, Blend Trees of any used Controller"), obfus.config.obfuscateLayers);
-                }
-                GUILayout.EndVertical();
 
                 GUILayout.BeginVertical(GUI.skin.box);
                 {
