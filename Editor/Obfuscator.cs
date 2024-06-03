@@ -12,6 +12,12 @@ namespace Esska.AV3Obfuscator.Editor {
 
     public class Obfuscator : ScriptableObject {
 
+        #region Constants
+
+        /// <summary>
+        /// List of reserved parameters. The will not be obfuscated.
+        /// https://creators.vrchat.com/avatars/animator-parameters/
+        /// </summary>
         public static readonly List<string> VRC_RESERVED_ANIMATOR_PARAMETERS = new List<string>() {
             "AFK",
             "AngularY",
@@ -43,36 +49,54 @@ namespace Esska.AV3Obfuscator.Editor {
             "VRMode"
         };
 
-        public static readonly List<string> VRC_PHYS_BONES_SUFFIXES = new List<string>() {
+        /// <summary>
+        /// List of allowed phys bone suffixes. The suffixes will not be obfuscated.
+        /// https://creators.vrchat.com/avatars/avatar-dynamics/physbones
+        /// </summary>
+        public static readonly List<string> VRC_PHYS_BONE_SUFFIXES = new List<string>() {
             "_IsGrabbed",
             "_IsPosed",
             "_Angle",
-            "_Stretch"
+            "_Stretch",
+            "_Squish"
         };
 
+        /// <summary>
+        /// List of transform names referenced in MMD animation clips. 
+        /// Skips obfuscation of transform name and blend shapes on it, depending on 
+        /// the "Preserve MMD" setting. 
+        /// </summary>
         public static readonly List<string> TRANSFORM_NAMES_MMD = new List<string>() {
             "Body"
         };
 
-        const string TITLE = "AV3Obfuscator";
-        const string FOLDER = "Obfuscated";
-        const string SUFFIX = "_Obfuscated";
+        private const string TITLE = "AV3Obfuscator";
+        private const string FOLDER = "Obfuscated";
+        private const string SUFFIX = "_Obfuscated";
 
-        ObfuscationConfiguration config;
-        string folder;
-        List<string> allParameters;
-        Dictionary<AnimationClip, AnimationClip> obfuscatedAnimationClips;
-        Dictionary<AudioClip, AudioClip> obfuscatedAudioClips;
-        Dictionary<AvatarMask, AvatarMask> obfuscatedAvatarMasks;
-        Dictionary<string, string> obfuscatedBlendShapeNames;
-        Dictionary<BlendTree, BlendTree> obfuscatedBlendTrees;
-        Dictionary<AnimatorController, AnimatorController> obfuscatedControllers;
-        Dictionary<VRCExpressionsMenu, VRCExpressionsMenu> obfuscatedExpressionMenus;
-        Dictionary<Material, Material> obfuscatedMaterials;
-        Dictionary<Mesh, Mesh> obfuscatedMeshes;
-        Dictionary<string, string> obfuscatedParameters;
-        Dictionary<Texture, Texture> obfuscatedTextures;
-        Dictionary<string, string> obfuscatedTransformNames;
+        #endregion
+
+        #region Runtime Variables
+
+        private ObfuscationConfiguration config;
+        private string folder;
+        private List<string> allParameters;
+        private Dictionary<Animator, Transform> armatureTransforms;
+        private Dictionary<AnimationClip, AnimationClip> obfuscatedAnimationClips;
+        private Dictionary<AudioClip, AudioClip> obfuscatedAudioClips;
+        private Dictionary<Avatar, Avatar> obfuscatedAvatars;
+        private Dictionary<AvatarMask, AvatarMask> obfuscatedAvatarMasks;
+        private Dictionary<string, string> obfuscatedBlendShapeNames;
+        private Dictionary<BlendTree, BlendTree> obfuscatedBlendTrees;
+        private Dictionary<AnimatorController, AnimatorController> obfuscatedControllers;
+        private Dictionary<VRCExpressionsMenu, VRCExpressionsMenu> obfuscatedExpressionMenus;
+        private Dictionary<Material, Material> obfuscatedMaterials;
+        private Dictionary<Mesh, Mesh> obfuscatedMeshes;
+        private Dictionary<string, string> obfuscatedParameters;
+        private Dictionary<Texture, Texture> obfuscatedTextures;
+        private Dictionary<string, string> obfuscatedTransformNames;
+
+        #endregion
 
         public void ClearObfuscatedAll() {
             string[] searchFolders = new string[] { $"Assets/{FOLDER}" };
@@ -148,23 +172,18 @@ namespace Esska.AV3Obfuscator.Editor {
             if (animator.avatar == null)
                 throw new System.Exception("Animator has no avatar");
 
-            Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
-
-            if (animators.Length > 1)
-                throw new System.Exception("More than one animator found. Obfuscation of additional animators below the hierarchy is not supported.");
-
-            Transform armatureTransform = GetArmatureTransform(animator);
-
-            if (armatureTransform == null)
-                throw new System.Exception("Armature not found.");
-
             Init();
 
-            EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Transforms", 0.1f);
-            ObfuscateTransforms(obfuscatedGameObject.transform, obfuscatedGameObject.transform); // has to run first
+            CollectAnimatorsAndArmatureTransforms(descriptor);
 
-            EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Avatar", 0.2f);
-            animator.avatar = ObfuscateAvatar(animator, armatureTransform); // has to run after ObfuscateTransforms
+            if (armatureTransforms[animator] == null)
+                throw new System.Exception("Armature not found.");
+
+            EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Transforms", 0.1f);
+            ObfuscateTransforms(obfuscatedGameObject.transform); // has to run first
+
+            EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Avatars", 0.2f);
+            ObfuscateAvatars(); // has to run after ObfuscateTransforms
 
             if (config.obfuscateMeshes) {
                 EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Meshes", 0.3f);
@@ -189,10 +208,10 @@ namespace Esska.AV3Obfuscator.Editor {
 
             if (config.obfuscateMaterials && config.obfuscateTextures) {
                 EditorUtility.DisplayProgressBar(TITLE, "Obfuscate Textures", 0.8f);
-                ObfuscateTextures(); // has to run after ObfuscateMaterials and ObfuscateControllers->ObfuscateClips has collected all materials
+                ObfuscateTextures(); // has to run after ObfuscateMaterials/ObfuscateControllers/ObfuscateClips has collected all materials
 
                 if (config.obfuscateTextures)
-                    ObfuscateCameras(descriptor);
+                    ObfuscateRenderTextures(descriptor);
             }
 
             if (config.obfuscateAudioClips) {
@@ -211,10 +230,12 @@ namespace Esska.AV3Obfuscator.Editor {
             EditorUtility.ClearProgressBar();
         }
 
-        void Init() {
+        private void Init() {
             allParameters = new List<string>();
+            armatureTransforms = new Dictionary<Animator, Transform>();
             obfuscatedAnimationClips = new Dictionary<AnimationClip, AnimationClip>();
             obfuscatedAudioClips = new Dictionary<AudioClip, AudioClip>();
+            obfuscatedAvatars = new Dictionary<Avatar, Avatar>();
             obfuscatedAvatarMasks = new Dictionary<AvatarMask, AvatarMask>();
             obfuscatedBlendShapeNames = new Dictionary<string, string>();
             obfuscatedBlendTrees = new Dictionary<BlendTree, BlendTree>();
@@ -227,7 +248,29 @@ namespace Esska.AV3Obfuscator.Editor {
             obfuscatedTransformNames = new Dictionary<string, string>();
         }
 
-        void ObfuscateTransforms(Transform rootTransform, Transform transform) {
+        /// <summary>
+        /// Collects all animators/armature transforms found in the hierarchy of the descriptor. 
+        /// This has to run before the transforms has been obfuscated.
+        /// Retains the armature transform for every animator.
+        /// </summary>
+        /// <param name="descriptor"></param>
+        private void CollectAnimatorsAndArmatureTransforms(VRCAvatarDescriptor descriptor) {
+            Animator[] animators = descriptor.transform.GetComponentsInChildren<Animator>(true);
+
+            foreach (var item in animators) {
+                armatureTransforms.Add(item, GetArmatureTransform(item));
+            }
+        }
+
+        /// <summary>
+        /// Obfuscates all transforms recursively beginning from the root transform.
+        /// </summary>
+        /// <param name="rootTransform"></param>
+        /// <param name="transform"></param>
+        private void ObfuscateTransforms(Transform rootTransform, Transform transform = null) {
+
+            if (transform == null)
+                transform = rootTransform;
 
             for (int i = 0; i < transform.childCount; i++) {
                 Transform child = transform.GetChild(i);
@@ -240,7 +283,13 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        string ObfuscateTransformName(string name) {
+        /// <summary>
+        /// Obfuscates the name of a transform.
+        /// Transforms with the same name gets the same obfuscated name.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        private string ObfuscateTransformName(string name) {
 
             if (string.IsNullOrEmpty(name))
                 return "";
@@ -254,7 +303,12 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        string ObfuscateTransformPath(string path) {
+        /// <summary>
+        /// Obfuscates an entrire path (e.g. Armature/Hips/Spine/Chest/Neck/Head).
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        private string ObfuscateTransformPath(string path) {
             string[] names = path.Split(new string[] { "/" }, System.StringSplitOptions.None);
 
             for (int i = 0; i < names.Length; i++) {
@@ -264,12 +318,35 @@ namespace Esska.AV3Obfuscator.Editor {
             return string.Join("/", names);
         }
 
-        Avatar ObfuscateAvatar(Animator animator, Transform armatureTransform) {
+        /// <summary>
+        /// Obfuscates all avatars on the collected animators.
+        /// </summary>
+        /// <param name="descriptor"></param>
+        private void ObfuscateAvatars() {
+
+            foreach (var item in armatureTransforms) {
+                item.Key.avatar = ObfuscateAvatar(item.Key, item.Value);
+            }
+        }
+
+        /// <summary>
+        /// Obfuscates the avatar of an animator.
+        /// To avoid conflics with <see cref="AvatarBuilder.BuildHumanAvatar"/>, 
+        /// all children will temporary be unparented, except the armature itself.
+        /// </summary>
+        /// <param name="animator"></param>
+        /// <param name="armatureTransform"></param>
+        /// <returns></returns>
+        /// <exception cref="System.Exception"></exception>
+        private Avatar ObfuscateAvatar(Animator animator, Transform armatureTransform) {
 
             if (animator.avatar == null)
                 return null;
 
-            if (animator.avatar.isValid) {
+            if (obfuscatedAvatars.ContainsKey(animator.avatar)) {
+                return obfuscatedAvatars[animator.avatar];
+            }
+            else if (animator.avatar.isValid) {
                 Avatar obfuscatedAvatar = null;
 
                 if (animator.avatar.isHuman) {
@@ -331,14 +408,21 @@ namespace Esska.AV3Obfuscator.Editor {
                 if (obfuscatedAvatar != null && obfuscatedAvatar.isValid) {
                     AssetDatabase.CreateAsset(obfuscatedAvatar, GetObfuscatedPath<Avatar>());
 
+                    obfuscatedAvatars.Add(animator.avatar, obfuscatedAvatar);
+
                     return obfuscatedAvatar;
                 }
             }
 
-            throw new System.Exception($"Obfuscation of Avatar '{animator.avatar.name}' failed");
+            throw new System.Exception($"Obfuscation of avatar '{animator.avatar.name}' failed");
         }
 
-        void ObfuscateMeshesAndBlendShapes(VRCAvatarDescriptor descriptor) {
+        /// <summary>
+        /// Obfuscates all meshes and blend shapes found in the hierarchy of the descriptor.
+        /// Ignores blend shapes on the "Body" transform, depending on the "Preserve MMD" setting. 
+        /// </summary>
+        /// <param name="descriptor"></param>
+        private void ObfuscateMeshesAndBlendShapes(VRCAvatarDescriptor descriptor) {
             SkinnedMeshRenderer[] skinnedMeshRenderers = descriptor.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             MeshFilter[] meshFilters = descriptor.GetComponentsInChildren<MeshFilter>(true);
             ParticleSystem[] particleSystems = descriptor.GetComponentsInChildren<ParticleSystem>(true);
@@ -375,7 +459,14 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        Mesh ObfuscateMeshAndBlendShapes(Mesh mesh, bool obfuscateBlendShapes) {
+        /// <summary>
+        /// Obfuscates a single mesh and it's blend shapes.
+        /// Built-in meshes will be ignored.
+        /// </summary>
+        /// <param name="mesh"></param>
+        /// <param name="obfuscateBlendShapes">True, if blend shapes should be obfuscated</param>
+        /// <returns></returns>
+        private Mesh ObfuscateMeshAndBlendShapes(Mesh mesh, bool obfuscateBlendShapes) {
 
             if (mesh == null)
                 return null;
@@ -387,7 +478,7 @@ namespace Esska.AV3Obfuscator.Editor {
                 return mesh;
             }
             else if (meshPath.Contains("unity default resources")) {
-                Debug.LogError($"Unity built-in Mesh '{mesh.name}' cannot be obfuscated. It will be ignored.");
+                Debug.LogError($"Unity built-in mesh '{mesh.name}' cannot be obfuscated. It will be ignored.");
                 return mesh;
             }
 
@@ -412,7 +503,7 @@ namespace Esska.AV3Obfuscator.Editor {
                         string blendShapeName = mesh.GetBlendShapeName(shapeIndex);
 
                         if (config.obfuscateBlendShapes && obfuscateBlendShapes)
-                            blendShapeName = ObfuscateBlendShape(blendShapeName);
+                            blendShapeName = ObfuscateBlendShapeName(blendShapeName);
 
                         obfuscatedMesh.AddBlendShapeFrame(blendShapeName, weight, deltaVertices, deltaNormals, deltaTangents);
                     }
@@ -425,7 +516,12 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        string ObfuscateBlendShape(string blendShapeName) {
+        /// <summary>
+        /// Obfuscates the name of a blend shape.
+        /// </summary>
+        /// <param name="blendShapeName"></param>
+        /// <returns></returns>
+        private string ObfuscateBlendShapeName(string blendShapeName) {
 
             if (string.IsNullOrEmpty(blendShapeName))
                 return blendShapeName;
@@ -442,7 +538,11 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        void ObfuscateMaterials(VRCAvatarDescriptor descriptor) {
+        /// <summary>
+        /// Obfuscates materials of all renderers found in the hierarchy of the descriptor.
+        /// </summary>
+        /// <param name="descriptor"></param>
+        private void ObfuscateMaterials(VRCAvatarDescriptor descriptor) {
             SkinnedMeshRenderer[] skinnedMeshRenderers = descriptor.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             MeshRenderer[] meshRenderers = descriptor.GetComponentsInChildren<MeshRenderer>(true);
             ParticleSystemRenderer[] particleSystemRenderers = descriptor.GetComponentsInChildren<ParticleSystemRenderer>(true);
@@ -478,7 +578,14 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        Material ObfuscateMaterial(Material material) {
+        /// <summary>
+        /// Obfuscates a single material.
+        /// Built-in material will be ignored.
+        /// </summary>
+        /// <param name="material"></param>
+        /// <returns></returns>
+        /// <exception cref="System.Exception"></exception>
+        private Material ObfuscateMaterial(Material material) {
 
             if (material == null)
                 return null;
@@ -490,7 +597,7 @@ namespace Esska.AV3Obfuscator.Editor {
                 return material;
             }
             else if (path.Contains("unity_builtin")) {
-                Debug.LogError($"Unity built-in Material '{material.name}' cannot be obfuscated. It will be ignored.");
+                Debug.LogError($"Unity built-in material '{material.name}' cannot be obfuscated. It will be ignored.");
                 return material;
             }
 
@@ -507,10 +614,16 @@ namespace Esska.AV3Obfuscator.Editor {
                 return obfuscatedMaterial;
             }
 
-            throw new System.Exception($"Obfuscation of Material '{material.name}' failed");
+            throw new System.Exception($"Obfuscation of material '{material.name}' failed");
         }
 
-        void ObfuscateControllers(VRCAvatarDescriptor descriptor, Animator animator) {
+        /// <summary>
+        /// Obfuscates all animator controllers referenced in the descriptor or additional 
+        /// ones found in the hierarchy.
+        /// </summary>
+        /// <param name="descriptor"></param>
+        /// <param name="animator"></param>
+        private void ObfuscateControllers(VRCAvatarDescriptor descriptor, Animator animator) {
             bool runtimeAnimatorValid = false;
 
             for (int i = 0; i < descriptor.baseAnimationLayers.Length; i++) {
@@ -541,10 +654,34 @@ namespace Esska.AV3Obfuscator.Editor {
             }
 
             if (animator.runtimeAnimatorController != null && !runtimeAnimatorValid)
-                Debug.LogError("Controller in Animator component cannot be obfuscated. You should set an controller, which is part of your playable layers (e.g. FX controller).", animator);
+                Debug.LogError("Controller in animator component cannot be obfuscated. You should set an controller, which is part of your playable layers (e.g. FX controller).", animator);
+
+            // Obfuscate additional animators
+            Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
+
+            foreach (var item in animators) {
+
+                if (item == animator)
+                    continue;
+
+                if (item.runtimeAnimatorController != null) {
+                    AnimatorController obfuscatedController = ObfuscateController((AnimatorController)item.runtimeAnimatorController);
+
+                    if (obfuscatedController != null)
+                        item.runtimeAnimatorController = obfuscatedController;
+                }
+            }
         }
 
-        AnimatorController ObfuscateController(AnimatorController controller) {
+        /// <summary>
+        /// Obfuscates a single animator controller.
+        /// This includes layers, parameters, avatar masks, state machines, states, 
+        /// transitions, state behaviours, blend trees and animation clips.
+        /// </summary>
+        /// <param name="controller"></param>
+        /// <returns></returns>
+        /// <exception cref="System.Exception"></exception>
+        private AnimatorController ObfuscateController(AnimatorController controller) {
             string newPath = GetObfuscatedPath<AnimatorController>();
 
             if (obfuscatedControllers.ContainsKey(controller)) {
@@ -559,12 +696,12 @@ namespace Esska.AV3Obfuscator.Editor {
                 List<AnimatorControllerParameter> parameters = new List<AnimatorControllerParameter>(obfuscatedController.parameters);
 
                 foreach (var parameter in parameters) {
-                    parameter.name = ObfuscateParameter(parameter.name);
+                    parameter.name = ObfuscateParameterName(parameter.name);
                 }
 
                 obfuscatedController.parameters = parameters.ToArray();
 
-                // Layers, avatar masks, state machines, states, blend trees, animation clips
+                // Layers, avatar masks, state machines
                 List<AnimatorControllerLayer> layers = new List<AnimatorControllerLayer>(obfuscatedController.layers);
 
                 foreach (var layer in layers) {
@@ -581,34 +718,41 @@ namespace Esska.AV3Obfuscator.Editor {
                 return obfuscatedController;
             }
 
-            throw new System.Exception($"Obfuscation of Controller '{controller.name}' failed");
+            throw new System.Exception($"Obfuscation of controller '{controller.name}' failed");
         }
 
-        string ObfuscateParameter(string parameter) {
+        /// <summary>
+        /// Obfuscates the name of a parameter.
+        /// Ignores reserved or excluded parameters.
+        /// Preserves the suffix for phys bone parameters.
+        /// </summary>
+        /// <param name="parameterName"></param>
+        /// <returns></returns>
+        private string ObfuscateParameterName(string parameterName) {
 
-            if (string.IsNullOrEmpty(parameter))
-                return parameter;
+            if (string.IsNullOrEmpty(parameterName))
+                return parameterName;
 
-            if (!allParameters.Contains(parameter))
-                allParameters.Add(parameter);
+            if (!allParameters.Contains(parameterName))
+                allParameters.Add(parameterName);
 
             if (!config.obfuscateExpressionParameters || !config.obfuscateParameters)
-                return parameter;
+                return parameterName;
 
-            if (VRC_RESERVED_ANIMATOR_PARAMETERS.Contains(parameter))
-                return parameter;
+            if (VRC_RESERVED_ANIMATOR_PARAMETERS.Contains(parameterName))
+                return parameterName;
 
-            if (!config.obfuscatedParameters.Contains(parameter))
-                return parameter;
+            if (!config.obfuscatedParameters.Contains(parameterName))
+                return parameterName;
 
-            if (obfuscatedParameters.ContainsKey(parameter))
-                return obfuscatedParameters[parameter];
+            if (obfuscatedParameters.ContainsKey(parameterName))
+                return obfuscatedParameters[parameterName];
 
             string obfuscatedParameter = GUID.Generate().ToString();
 
-            // Use same GUID for same PhysBones parameter and do not obfuscate suffix
+            // Use same GUID for same phys bone parameter and do not obfuscate suffix
 
-            // Parameter in PhysBones component
+            // Parameter in phys bone component
             // Nose            ->  {GUID}
 
             // Parameter in controller
@@ -616,36 +760,42 @@ namespace Esska.AV3Obfuscator.Editor {
             // Nose_Angle      ->  {GUID}_Angle
             // Nose_Stretch    ->  {GUID}_Stretch
 
-            string physBonesParameterSuffix = GetPhysBonesParameterSuffix(parameter);
+            string physBoneParameterSuffix = GetPhysBoneParameterSuffix(parameterName);
 
-            if (!string.IsNullOrEmpty(physBonesParameterSuffix)) {
-                string physBonesParameter = GetPhysBonesParameter(parameter);
-                bool foundSamePhysBonesParameter = false;
+            if (!string.IsNullOrEmpty(physBoneParameterSuffix)) {
+                string physBoneParameter = GetPhysBoneParameter(parameterName);
+                bool foundSamePhysBoneParameter = false;
 
-                foreach (var suffix in VRC_PHYS_BONES_SUFFIXES) {
+                foreach (var suffix in VRC_PHYS_BONE_SUFFIXES) {
 
-                    if (suffix == physBonesParameterSuffix)
+                    if (suffix == physBoneParameterSuffix)
                         continue;
 
-                    string samePhysBonesParameterName = physBonesParameter + suffix;
+                    string samePhysBoneParameterName = physBoneParameter + suffix;
 
-                    if (obfuscatedParameters.ContainsKey(samePhysBonesParameterName)) {
-                        obfuscatedParameter = GetPhysBonesParameter(obfuscatedParameters[samePhysBonesParameterName]) + physBonesParameterSuffix;
-                        foundSamePhysBonesParameter = true;
+                    if (obfuscatedParameters.ContainsKey(samePhysBoneParameterName)) {
+                        obfuscatedParameter = GetPhysBoneParameter(obfuscatedParameters[samePhysBoneParameterName]) + physBoneParameterSuffix;
+                        foundSamePhysBoneParameter = true;
                         break;
                     }
                 }
 
-                if (!foundSamePhysBonesParameter)
-                    obfuscatedParameter += physBonesParameterSuffix;
+                if (!foundSamePhysBoneParameter)
+                    obfuscatedParameter += physBoneParameterSuffix;
             }
 
-            obfuscatedParameters.Add(parameter, obfuscatedParameter);
+            obfuscatedParameters.Add(parameterName, obfuscatedParameter);
 
             return obfuscatedParameter;
         }
 
-        AvatarMask ObfuscateAvatarMask(AvatarMask avatarMask) {
+        /// <summary>
+        /// Obfuscates a single avatar mask.
+        /// </summary>
+        /// <param name="avatarMask"></param>
+        /// <returns></returns>
+        /// <exception cref="System.Exception"></exception>
+        private AvatarMask ObfuscateAvatarMask(AvatarMask avatarMask) {
             string newPath = GetObfuscatedPath<AvatarMask>();
 
             if (obfuscatedAvatarMasks.ContainsKey(avatarMask)) {
@@ -671,18 +821,22 @@ namespace Esska.AV3Obfuscator.Editor {
                 return obfuscatedAvatarMask;
             }
 
-            throw new System.Exception($"Obfuscation of AvatarMask '{avatarMask.name}' failed");
+            throw new System.Exception($"Obfuscation of avatar mask '{avatarMask.name}' failed");
         }
 
-        void ObfuscateStateMachine(AnimatorStateMachine stateMachine) {
+        /// <summary>
+        /// Obfuscates a single state machine.
+        /// </summary>
+        /// <param name="stateMachine"></param>
+        private void ObfuscateStateMachine(AnimatorStateMachine stateMachine) {
             stateMachine.name = GUID.Generate().ToString();
 
             foreach (var transition in stateMachine.entryTransitions) {
-                ObfuscateTransitionConditionParameters(transition);
+                ObfuscateTransition(transition);
             }
 
             foreach (var transition in stateMachine.anyStateTransitions) {
-                ObfuscateTransitionConditionParameters(transition);
+                ObfuscateTransition(transition);
             }
 
             foreach (var behaviour in stateMachine.behaviours) {
@@ -698,16 +852,20 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        void ObfuscateState(AnimatorState state) {
+        /// <summary>
+        /// Obfuscates a single state.
+        /// </summary>
+        /// <param name="state"></param>
+        private void ObfuscateState(AnimatorState state) {
             state.name = GUID.Generate().ToString();
 
-            state.cycleOffsetParameter = ObfuscateParameter(state.cycleOffsetParameter);
-            state.mirrorParameter = ObfuscateParameter(state.mirrorParameter);
-            state.speedParameter = ObfuscateParameter(state.speedParameter);
-            state.timeParameter = ObfuscateParameter(state.timeParameter);
+            state.cycleOffsetParameter = ObfuscateParameterName(state.cycleOffsetParameter);
+            state.mirrorParameter = ObfuscateParameterName(state.mirrorParameter);
+            state.speedParameter = ObfuscateParameterName(state.speedParameter);
+            state.timeParameter = ObfuscateParameterName(state.timeParameter);
 
             foreach (var transition in state.transitions) {
-                ObfuscateTransitionConditionParameters(transition);
+                ObfuscateTransition(transition);
             }
 
             foreach (var behaviour in state.behaviours) {
@@ -720,14 +878,18 @@ namespace Esska.AV3Obfuscator.Editor {
                 state.motion = ObfuscateBlendTree((BlendTree)state.motion);
         }
 
-        void ObfuscateBehaviour(StateMachineBehaviour behaviour) {
+        /// <summary>
+        /// Obfuscates a single state machine behaviour.
+        /// </summary>
+        /// <param name="behaviour"></param>
+        private void ObfuscateBehaviour(StateMachineBehaviour behaviour) {
 
             if (behaviour is VRCAvatarParameterDriver) {
                 VRCAvatarParameterDriver parameterDriver = (VRCAvatarParameterDriver)behaviour;
 
                 foreach (var parameter in parameterDriver.parameters) {
-                    parameter.name = ObfuscateParameter(parameter.name);
-                    parameter.source = ObfuscateParameter(parameter.source);
+                    parameter.name = ObfuscateParameterName(parameter.name);
+                    parameter.source = ObfuscateParameterName(parameter.source);
                 }
             }
             else if (behaviour is VRCAnimatorPlayAudio) {
@@ -736,7 +898,7 @@ namespace Esska.AV3Obfuscator.Editor {
                 if (!string.IsNullOrEmpty(animatorPlayAudio.SourcePath))
                     animatorPlayAudio.SourcePath = ObfuscateTransformPath(animatorPlayAudio.SourcePath);
 
-                animatorPlayAudio.ParameterName = ObfuscateParameter(animatorPlayAudio.ParameterName);
+                animatorPlayAudio.ParameterName = ObfuscateParameterName(animatorPlayAudio.ParameterName);
 
                 if (config.obfuscateAudioClips) {
 
@@ -747,7 +909,14 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        AnimationClip ObfuscateAnimationClip(AnimationClip clip) {
+        /// <summary>
+        /// Obfuscates a single animation clip.
+        /// VRC proxy animations will be ignored.
+        /// </summary>
+        /// <param name="clip"></param>
+        /// <returns></returns>
+        /// <exception cref="System.Exception"></exception>
+        private AnimationClip ObfuscateAnimationClip(AnimationClip clip) {
             string path = AssetDatabase.GetAssetPath(clip);
 
             if (path.Contains("ProxyAnim/proxy_"))
@@ -778,7 +947,7 @@ namespace Esska.AV3Obfuscator.Editor {
 
                         if (config.obfuscateMeshes && config.obfuscateBlendShapes && bindings[i].propertyName.StartsWith("blendShape.")) {
                             string blendShapeName = bindings[i].propertyName.Replace("blendShape.", "");
-                            bindings[i].propertyName = "blendShape." + ObfuscateBlendShape(blendShapeName);
+                            bindings[i].propertyName = "blendShape." + ObfuscateBlendShapeName(blendShapeName);
                         }
 
                         AnimationUtility.SetEditorCurve(obfuscatedClip, bindings[i], curve);
@@ -826,10 +995,16 @@ namespace Esska.AV3Obfuscator.Editor {
                 return obfuscatedClip;
             }
 
-            throw new System.Exception($"Obfuscation of AnimationClip '{clip.name}' failed");
+            throw new System.Exception($"Obfuscation of animation clip '{clip.name}' failed");
         }
 
-        BlendTree ObfuscateBlendTree(BlendTree blendTree) {
+        /// <summary>
+        /// Obfuscates a single blend tree.
+        /// </summary>
+        /// <param name="blendTree"></param>
+        /// <returns></returns>
+        /// <exception cref="System.Exception"></exception>
+        private BlendTree ObfuscateBlendTree(BlendTree blendTree) {
 
             if (obfuscatedBlendTrees.ContainsKey(blendTree)) {
                 return obfuscatedBlendTrees[blendTree];
@@ -847,14 +1022,14 @@ namespace Esska.AV3Obfuscator.Editor {
                         obfuscatedBlendTrees.Add(blendTree, obfuscatedBlendTree);
                     }
                     else {
-                        throw new System.Exception($"Obfuscation of BlendTree '{blendTree.name}' failed");
+                        throw new System.Exception($"Obfuscation of blend tree '{blendTree.name}' failed");
                     }
                 }
 
                 obfuscatedBlendTree.name = obfuscatedBlendTreeGUID;
 
-                obfuscatedBlendTree.blendParameter = ObfuscateParameter(obfuscatedBlendTree.blendParameter);
-                obfuscatedBlendTree.blendParameterY = ObfuscateParameter(obfuscatedBlendTree.blendParameterY);
+                obfuscatedBlendTree.blendParameter = ObfuscateParameterName(obfuscatedBlendTree.blendParameter);
+                obfuscatedBlendTree.blendParameterY = ObfuscateParameterName(obfuscatedBlendTree.blendParameterY);
 
                 List<ChildMotion> childMotions = new List<ChildMotion>(obfuscatedBlendTree.children);
 
@@ -863,13 +1038,13 @@ namespace Esska.AV3Obfuscator.Editor {
                     if (childMotions[i].motion is AnimationClip) {
                         ChildMotion childMotion = childMotions[i];
                         childMotion.motion = ObfuscateAnimationClip((AnimationClip)childMotion.motion);
-                        childMotion.directBlendParameter = ObfuscateParameter(childMotion.directBlendParameter);
+                        childMotion.directBlendParameter = ObfuscateParameterName(childMotion.directBlendParameter);
                         childMotions[i] = childMotion;
                     }
                     else if (obfuscatedBlendTree.children[i].motion is BlendTree) {
                         ChildMotion childMotion = childMotions[i];
                         childMotion.motion = ObfuscateBlendTree((BlendTree)obfuscatedBlendTree.children[i].motion);
-                        childMotion.directBlendParameter = ObfuscateParameter(childMotion.directBlendParameter);
+                        childMotion.directBlendParameter = ObfuscateParameterName(childMotion.directBlendParameter);
                         childMotions[i] = childMotion;
                     }
                 }
@@ -879,22 +1054,30 @@ namespace Esska.AV3Obfuscator.Editor {
                 return obfuscatedBlendTree;
             }
 
-            throw new System.Exception($"Obfuscation of BlendTree '{blendTree.name}' failed");
+            throw new System.Exception($"Obfuscation of blend tree '{blendTree.name}' failed");
         }
 
-        void ObfuscateTransitionConditionParameters(AnimatorTransitionBase transition) {
+        /// <summary>
+        /// Obfuscates a single transition.
+        /// </summary>
+        /// <param name="transition"></param>
+        private void ObfuscateTransition(AnimatorTransitionBase transition) {
             List<AnimatorCondition> conditions = new List<AnimatorCondition>(transition.conditions);
 
             for (int i = 0; i < conditions.Count; i++) {
                 AnimatorCondition condition = conditions[i];
-                condition.parameter = ObfuscateParameter(condition.parameter);
+                condition.parameter = ObfuscateParameterName(condition.parameter);
                 conditions[i] = condition;
             }
 
             transition.conditions = conditions.ToArray();
         }
 
-        void ObfuscateExpressionsAndMenus(VRCAvatarDescriptor descriptor) {
+        /// <summary>
+        /// Obfuscates expression parameters and expresssion menus referenced in the descriptor.
+        /// </summary>
+        /// <param name="descriptor"></param>
+        private void ObfuscateExpressionsAndMenus(VRCAvatarDescriptor descriptor) {
 
             if (descriptor.expressionParameters != null) {
                 string newPath = GetObfuscatedPath<VRCExpressionParameters>();
@@ -910,9 +1093,9 @@ namespace Esska.AV3Obfuscator.Editor {
                                 continue;
 
                             if (!allParameters.Contains(expressionParameter.name))
-                                Debug.LogError($"VRC Expression Parameter '{expressionParameter.name}' is not used in any controller. It's recommended to remove it.", descriptor.expressionParameters);
+                                Debug.LogError($"VRC expression parameter '{expressionParameter.name}' is not used in any controller. It's recommended to remove it.", descriptor.expressionParameters);
 
-                            expressionParameter.name = ObfuscateParameter(expressionParameter.name);
+                            expressionParameter.name = ObfuscateParameterName(expressionParameter.name);
                         }
                     }
                 }
@@ -922,7 +1105,13 @@ namespace Esska.AV3Obfuscator.Editor {
                 descriptor.expressionsMenu = ObfuscateExpressionMenu(descriptor.expressionsMenu);
         }
 
-        VRCExpressionsMenu ObfuscateExpressionMenu(VRCExpressionsMenu menu) {
+        /// <summary>
+        /// Obfuscates an expression menu including all it's sub menus.
+        /// </summary>
+        /// <param name="menu"></param>
+        /// <returns></returns>
+        /// <exception cref="System.Exception"></exception>
+        private VRCExpressionsMenu ObfuscateExpressionMenu(VRCExpressionsMenu menu) {
             string newPath = GetObfuscatedPath<VRCExpressionsMenu>();
 
             if (obfuscatedExpressionMenus.ContainsKey(menu))
@@ -933,10 +1122,10 @@ namespace Esska.AV3Obfuscator.Editor {
                 obfuscatedExpressionMenus.Add(menu, obfuscatedMenu);
 
                 foreach (var control in obfuscatedMenu.controls) {
-                    control.parameter.name = ObfuscateParameter(control.parameter.name);
+                    control.parameter.name = ObfuscateParameterName(control.parameter.name);
 
                     foreach (var subParameter in control.subParameters) {
-                        subParameter.name = ObfuscateParameter(subParameter.name);
+                        subParameter.name = ObfuscateParameterName(subParameter.name);
                     }
 
                     if (config.obfuscateMaterials && config.obfuscateTextures && control.icon != null)
@@ -954,10 +1143,14 @@ namespace Esska.AV3Obfuscator.Editor {
                 return obfuscatedMenu;
             }
 
-            throw new System.Exception($"Obfuscation of VRC Expression Menu '{menu.name}' failed");
+            throw new System.Exception($"Obfuscation of VRC expression menu '{menu.name}' failed");
         }
 
-        void ObfuscatePhysBonesAndContactReceivers(VRCAvatarDescriptor descriptor) {
+        /// <summary>
+        /// Obfuscates all phys bones and contact receivers found in the hierarchy of the descriptor.
+        /// </summary>
+        /// <param name="descriptor"></param>
+        private void ObfuscatePhysBonesAndContactReceivers(VRCAvatarDescriptor descriptor) {
             VRCPhysBone[] physBones = descriptor.GetComponentsInChildren<VRCPhysBone>(true);
             VRCContactReceiver[] contactReceivers = descriptor.GetComponentsInChildren<VRCContactReceiver>(true);
 
@@ -965,11 +1158,11 @@ namespace Esska.AV3Obfuscator.Editor {
 
                 if (!string.IsNullOrEmpty(physBone.parameter)) {
 
-                    foreach (var suffix in VRC_PHYS_BONES_SUFFIXES) {
-                        string physBonesParameterName = physBone.parameter + suffix;
+                    foreach (var suffix in VRC_PHYS_BONE_SUFFIXES) {
+                        string physBoneParameterName = physBone.parameter + suffix;
 
-                        if (obfuscatedParameters.ContainsKey(physBonesParameterName)) {
-                            physBone.parameter = GetPhysBonesParameter(obfuscatedParameters[physBonesParameterName]);
+                        if (obfuscatedParameters.ContainsKey(physBoneParameterName)) {
+                            physBone.parameter = GetPhysBoneParameter(obfuscatedParameters[physBoneParameterName]);
                             break;
                         }
                     }
@@ -977,11 +1170,14 @@ namespace Esska.AV3Obfuscator.Editor {
             }
 
             foreach (var contactReceiver in contactReceivers) {
-                contactReceiver.parameter = ObfuscateParameter(contactReceiver.parameter);
+                contactReceiver.parameter = ObfuscateParameterName(contactReceiver.parameter);
             }
         }
 
-        void ObfuscateTextures() {
+        /// <summary>
+        /// Obfuscates all textures referenced with obfuscated materials.
+        /// </summary>
+        private void ObfuscateTextures() {
 
             foreach (var item in obfuscatedMaterials) {
                 Material obfuscatedMaterial = item.Value;
@@ -996,7 +1192,11 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        void ObfuscateCameras(VRCAvatarDescriptor descriptor) {
+        /// <summary>
+        /// Obfuscates render textures of all cameras found in the hierarchy of the descriptor.
+        /// </summary>
+        /// <param name="descriptor"></param>
+        private void ObfuscateRenderTextures(VRCAvatarDescriptor descriptor) {
             Camera[] cameras = descriptor.GetComponentsInChildren<Camera>(true);
 
             foreach (var camera in cameras) {
@@ -1006,7 +1206,14 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        Texture ObfuscateTexture(Texture texture) {
+        /// <summary>
+        /// Obfuscates a single texture.
+        /// Built-in textures will be ignored.
+        /// </summary>
+        /// <param name="texture"></param>
+        /// <returns></returns>
+        /// <exception cref="System.Exception"></exception>
+        private Texture ObfuscateTexture(Texture texture) {
 
             if (texture == null)
                 return null;
@@ -1018,7 +1225,7 @@ namespace Esska.AV3Obfuscator.Editor {
                 return texture;
             }
             else if (path.Contains("unity_builtin")) {
-                Debug.LogError($"Unity built-in Texture '{texture.name}' cannot be obfuscated. It will be ignored.");
+                Debug.LogError($"Unity built-in texture '{texture.name}' cannot be obfuscated. It will be ignored.");
                 return texture;
             }
 
@@ -1034,10 +1241,14 @@ namespace Esska.AV3Obfuscator.Editor {
                 return obfuscatedTexture;
             }
 
-            throw new System.Exception($"Obfuscation of Texture '{texture.name}' failed");
+            throw new System.Exception($"Obfuscation of texture '{texture.name}' failed");
         }
 
-        void ObfuscateAudioClips(VRCAvatarDescriptor descriptor) {
+        /// <summary>
+        /// Obfuscates audio clips of all audio sources found in the hierarchy of the descriptor.
+        /// </summary>
+        /// <param name="descriptor"></param>
+        private void ObfuscateAudioClips(VRCAvatarDescriptor descriptor) {
             AudioSource[] audioSources = descriptor.GetComponentsInChildren<AudioSource>(true);
 
             foreach (var audioSource in audioSources) {
@@ -1047,7 +1258,13 @@ namespace Esska.AV3Obfuscator.Editor {
             }
         }
 
-        AudioClip ObfuscateAudioClip(AudioClip ausdioClip) {
+        /// <summary>
+        /// Obfuscates a single audio clip.
+        /// </summary>
+        /// <param name="ausdioClip"></param>
+        /// <returns></returns>
+        /// <exception cref="System.Exception"></exception>
+        private AudioClip ObfuscateAudioClip(AudioClip ausdioClip) {
 
             if (ausdioClip == null)
                 return null;
@@ -1071,14 +1288,25 @@ namespace Esska.AV3Obfuscator.Editor {
                 return obfuscatedAudioCLip;
             }
 
-            throw new System.Exception($"Obfuscation of AudioClip '{ausdioClip.name}' failed");
+            throw new System.Exception($"Obfuscation of audio clip '{ausdioClip.name}' failed");
         }
 
-        bool IsObfuscatedGameObject(GameObject gameObject) {
+        /// <summary>
+        /// True, if it is an obfuscated root game object.
+        /// </summary>
+        /// <param name="gameObject"></param>
+        /// <returns></returns>
+        private bool IsObfuscatedGameObject(GameObject gameObject) {
             return (gameObject.name.Length == (32 + SUFFIX.Length) && gameObject.name.EndsWith(SUFFIX));
         }
 
-        string GetObfuscatedPath<T>(string guid = "") {
+        /// <summary>
+        /// Gets an obfuscated path with the matching file ending depending on it's type.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="guid"></param>
+        /// <returns></returns>
+        private string GetObfuscatedPath<T>(string guid = "") {
 
             if (guid == "")
                 guid = GUID.Generate().ToString();
@@ -1103,9 +1331,15 @@ namespace Esska.AV3Obfuscator.Editor {
             return path;
         }
 
-        string GetPhysBonesParameter(string parameter) {
+        /// <summary>
+        /// Gets the parameter without the an allowed phys bone suffixes 
+        /// (e.g. Nose_IsGrabbed -> Nose).
+        /// </summary>
+        /// <param name="parameter"></param>
+        /// <returns></returns>
+        private string GetPhysBoneParameter(string parameter) {
 
-            foreach (var suffix in VRC_PHYS_BONES_SUFFIXES) {
+            foreach (var suffix in VRC_PHYS_BONE_SUFFIXES) {
 
                 if (parameter.EndsWith(suffix))
                     return parameter.Substring(0, parameter.Length - suffix.Length);
@@ -1114,9 +1348,15 @@ namespace Esska.AV3Obfuscator.Editor {
             return "";
         }
 
-        string GetPhysBonesParameterSuffix(string parameter) {
+        /// <summary>
+        /// Gets only the suffix of a parameter which contains an allowed phys bone suffix 
+        /// (e.g. Nose_IsGrabbed -> _IsGrabbed).
+        /// </summary>
+        /// <param name="parameter"></param>
+        /// <returns></returns>
+        private string GetPhysBoneParameterSuffix(string parameter) {
 
-            foreach (var suffix in VRC_PHYS_BONES_SUFFIXES) {
+            foreach (var suffix in VRC_PHYS_BONE_SUFFIXES) {
 
                 if (parameter.EndsWith(suffix))
                     return suffix;
@@ -1125,7 +1365,14 @@ namespace Esska.AV3Obfuscator.Editor {
             return "";
         }
 
-        Transform GetArmatureTransform(Animator animator) {
+        /// <summary>
+        /// Gets the armature transform of an animator.
+        /// A valid armature transform must start with "Armature" and must contain a 
+        /// "Hips" transform.
+        /// </summary>
+        /// <param name="animator"></param>
+        /// <returns></returns>
+        private Transform GetArmatureTransform(Animator animator) {
             Transform[] children = animator.transform.GetComponentsInChildren<Transform>(true);
 
             for (int i = 0; i < children.Length; i++) {

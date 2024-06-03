@@ -46,13 +46,6 @@ namespace Esska.AV3Obfuscator.Editor {
                 return;
             }
 
-            Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
-
-            if (animators.Length > 1) {
-                EditorGUILayout.HelpBox("More than one animator found. Obfuscation of additional animators below the hierarchy is not supported.", MessageType.Error, true);
-                return;
-            }
-
             Undo.RecordObject(obfus, "Modify Obfuscator");
 
             if (refreshParameters) {
@@ -95,6 +88,14 @@ namespace Esska.AV3Obfuscator.Editor {
 
             GUILayout.Space(5f);
             EditorGUILayout.HelpBox("Obfuscates selectable content of your avatar. All obfuscated data will be stored in an extra folder (Assets/Obfuscated). Your files will not be changed.", MessageType.None, true);
+
+            Animator[] animators = descriptor.GetComponentsInChildren<Animator>(true);
+
+            if (animators.Length > 1) {
+                GUILayout.Space(5f);
+                EditorGUILayout.HelpBox("More than one animator found. Obfuscation of additional animators are not fully supported. Use at your own risk.", MessageType.Warning, true);
+            }
+
             GUILayout.Space(10f);
             GUILayout.Label("Obfuscate (Default)", EditorStyles.boldLabel);
 
