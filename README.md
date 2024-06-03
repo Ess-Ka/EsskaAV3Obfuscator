@@ -39,7 +39,7 @@ Optional, following data can be obfuscated:
 
 ## What will not be obfuscated?
 
-Currently, shaders will not be obfuscated. Additional animators below the hierarchy are not supported.
+Currently, shaders will not be obfuscated.
 
 ## Installation
 
