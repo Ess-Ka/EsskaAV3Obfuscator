@@ -228,6 +228,8 @@ namespace Esska.AV3Obfuscator.Editor {
             AssetDatabase.SaveAssets();
 
             EditorUtility.ClearProgressBar();
+
+            Selection.activeGameObject = obfuscatedGameObject;
         }
 
         private void Init() {
